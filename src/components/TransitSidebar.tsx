@@ -158,37 +158,44 @@ export function TransitSidebar({
       </div>
 
       {/* Alerts */}
-      {/* Alerts */}
       <div className="mt-auto flex min-h-0 flex-1 flex-col">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Live Alerts
         </h2>
         <div className="-mr-2 flex-1 overflow-y-auto pr-2">
-          <ul className="space-y-2">
-            {/* CHANGE THIS LINE from alerts.map to liveAlerts.map */}
-            {liveAlerts.map((a) => {
-              const Icon = severityIcon[a.severity];
-              return (
-                <li
-                  key={a.id}
-                  className="rounded-xl border border-white/5 bg-white/[0.03] p-3"
-                >
-                  <div className="flex items-start gap-2.5">
-                    <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${severityColor[a.severity]}`} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          {a.route}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">{a.time}</span>
+          
+          {/* Add the check for empty alerts here */}
+          {liveAlerts.length === 0 ? (
+            <p className="py-4 text-center text-xs text-muted-foreground">
+              No current alerts as of {lastUpdated.toLocaleDateString()} {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {liveAlerts.map((a) => {
+                const Icon = severityIcon[a.severity];
+                return (
+                  <li
+                    key={a.id}
+                    className="rounded-xl border border-white/5 bg-white/[0.03] p-3"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${severityColor[a.severity]}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {a.route}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">{a.time}</span>
+                        </div>
+                        <p className="mt-0.5 text-xs leading-snug">{a.title}</p>
                       </div>
-                      <p className="mt-0.5 text-xs leading-snug">{a.title}</p>
                     </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          
         </div>
       </div>
     </aside>
