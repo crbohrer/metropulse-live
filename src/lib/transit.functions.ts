@@ -36,18 +36,20 @@ export const getLiveAlerts = createServerFn({ method: "GET" }).handler(async () 
     const data = await response.json();
     
     // Extract alerts from the Mecatran JSON structure
-    return data.entity.map((e: any) => ({
-      id: e.id,
-      severity: "warning", 
-      route: e.alert.informed_entity?.[0]?.route_id || "General",
-      title: e.alert.header_text?.translation?.[0]?.text || "Alert",
-      time: "Live"
-    }));
-  } catch (error) {
-    console.error("Error fetching alerts:", error);
-    return [];
-  }
-});
+    return data.entity.map((e: any) => {
+      const header = e.alert.headerText?.translation?.[0]?.text || "Transit Alert";
+      const desc = e.alert.descriptionText?.translation?.[0]?.text || "";
+      const route = e.alert.informedEntity?.[0]?.routeId || "System";
+
+      return {
+        id: e.id,
+        severity: "warning", 
+        route: route,
+        title: header,
+        description: desc,
+        time: "Live"
+      };
+    });
 
 // Valley Metro classification by route_id.
 // Light Rail = "RAIL" / "0" / "RL"; Streetcar = "SMC" / "TS"; everything else = bus.
