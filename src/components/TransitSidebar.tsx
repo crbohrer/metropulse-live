@@ -162,8 +162,6 @@ export function TransitSidebar({
           Live Alerts
         </h2>
         <div className="-mr-2 flex-1 overflow-y-auto pr-2">
-          
-          {/* Add the check for empty alerts here */}
           {liveAlerts.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground">
               No current alerts as of {lastUpdated.toLocaleDateString()} {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -172,21 +170,30 @@ export function TransitSidebar({
             <ul className="space-y-2">
               {liveAlerts.map((a) => {
                 const Icon = severityIcon[a.severity];
+                const isExpanded = expandedAlert === a.id;
                 return (
                   <li
                     key={a.id}
-                    className="rounded-xl border border-white/5 bg-white/[0.03] p-3"
+                    onClick={() => setExpandedAlert(isExpanded ? null : a.id)}
+                    className="cursor-pointer rounded-xl border border-white/5 bg-white/[0.03] p-3 transition hover:bg-white/[0.06]"
                   >
                     <div className="flex items-start gap-2.5">
                       <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${severityColor[a.severity]}`} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            {a.route}
+                            {a.route !== "System" ? `ROUTE ${a.route}` : "SYSTEM"}
                           </span>
                           <span className="text-[10px] text-muted-foreground">{a.time}</span>
                         </div>
-                        <p className="mt-0.5 text-xs leading-snug">{a.title}</p>
+                        <p className={`mt-0.5 text-xs leading-snug ${isExpanded ? '' : 'line-clamp-2'}`}>
+                          {a.title}
+                        </p>
+                        {isExpanded && a.description && (
+                          <p className="mt-2 border-t border-white/10 pt-2 text-xs text-muted-foreground">
+                            {a.description}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </li>
@@ -194,7 +201,6 @@ export function TransitSidebar({
               })}
             </ul>
           )}
-          
         </div>
       </div>
     </aside>
