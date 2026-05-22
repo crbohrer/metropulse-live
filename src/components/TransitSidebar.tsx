@@ -1,5 +1,5 @@
 import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio } from "lucide-react";
-import type { Vehicle, VehicleType, TransitAlert } from "@/lib/mock-transit";
+import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
 
 interface Props {
   vehicles: Vehicle[];
