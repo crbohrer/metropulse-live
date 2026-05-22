@@ -18,8 +18,8 @@ interface Feed {
 }
 
 // Replace the old fetchLiveAlerts with this:
+// Replace the old getLiveAlerts with this:
 export const getLiveAlerts = createServerFn({ method: "GET" }).handler(async () => {
-  // Reuse the exact same server-side key that the vehicles are using!
   const key = process.env.VALLEY_METRO_API_KEY; 
   
   if (!key) {
@@ -49,7 +49,12 @@ export const getLiveAlerts = createServerFn({ method: "GET" }).handler(async () 
         description: desc,
         time: "Live"
       };
-    });
+    }); // <--- THIS closes the .map()
+  } catch (error) {
+    console.error("Error fetching alerts:", error);
+    return [];
+  }
+}); // <--- THIS closes the .handler()
 
 // Valley Metro classification by route_id.
 // Light Rail = "RAIL" / "0" / "RL"; Streetcar = "SMC" / "TS"; everything else = bus.
