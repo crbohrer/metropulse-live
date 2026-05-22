@@ -24,7 +24,7 @@ function classify(routeId: string | undefined): VehicleType {
   const r = routeId.toUpperCase();
   if (r === "A" || r === "B" || r === "0") return "rail";
   // Update this line to include the actual ID you see in your feed
-  if (r === "STRN" || r === "S") return "streetcar"; 
+  if (r === "S") return "streetcar"; 
   
   return "bus";
 }
