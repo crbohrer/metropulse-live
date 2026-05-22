@@ -158,13 +158,15 @@ export function TransitSidebar({
       </div>
 
       {/* Alerts */}
+      {/* Alerts */}
       <div className="mt-auto flex min-h-0 flex-1 flex-col">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Live Alerts
         </h2>
         <div className="-mr-2 flex-1 overflow-y-auto pr-2">
           <ul className="space-y-2">
-            {alerts.map((a) => {
+            {/* CHANGE THIS LINE from alerts.map to liveAlerts.map */}
+            {liveAlerts.map((a) => {
               const Icon = severityIcon[a.severity];
               return (
                 <li
