@@ -42,6 +42,13 @@ export function TransitSidebar({
   onSelectVehicle,
   lastUpdated,
 }: Props) {
+  const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
+
+  useEffect(() => {
+    // Fetches the real alerts when the sidebar loads
+    fetchLiveAlerts().then(data => setLiveAlerts(data));
+  }, []);
+  
   const filtered = vehicles.filter(
     (v) =>
       filters[v.vehicle_type] &&
