@@ -22,8 +22,8 @@ interface Feed {
 function classify(routeId: string | undefined): VehicleType {
   if (!routeId) return "bus";
   const r = routeId.toUpperCase();
-  if (r === "RAIL" || r === "RL" || r === "0" || r.includes("RAIL")) return "rail";
-  if (r === "SMC" || r === "TS" || r.includes("STREETCAR")) return "streetcar";
+  if (r === "A" || r === "B" || r === "0") return "rail";
+  if (r === "STRN") return "streetcar";
   return "bus";
 }
 
