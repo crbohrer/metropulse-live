@@ -1,6 +1,7 @@
 import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio } from "lucide-react";
 import { useState, useEffect } from 'react';
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
+import { fetchLiveAlerts } from "@/lib/transit.functions";
 
 interface Props {
   vehicles: Vehicle[];
