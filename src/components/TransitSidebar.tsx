@@ -42,6 +42,7 @@ export function TransitSidebar({
   lastUpdated,
 }: Props) {
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
+  const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
 
   useEffect(() => {
     getLiveAlerts().then(data => setLiveAlerts(data));
