@@ -1,16 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 const TransitMap = lazy(() =>
   import("@/components/TransitMap").then((m) => ({ default: m.TransitMap }))
 );
 import { TransitSidebar } from "@/components/TransitSidebar";
-import {
-  driftVehicles,
-  generateMockVehicles,
-  mockAlerts,
-  type Vehicle,
-  type VehicleType,
-} from "@/lib/mock-transit";
+import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
+import { getLiveVehicles } from "@/lib/transit.functions";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -23,7 +20,22 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>(() => generateMockVehicles(32));
+  const fetchVehicles = useServerFn(getLiveVehicles);
+  const { data } = useQuery({
+    queryKey: ["live-vehicles"],
+    queryFn: () => fetchVehicles(),
+    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
+    staleTime: 10_000,
+  });
+
+  const vehicles: Vehicle[] = data?.vehicles ?? [];
+  const lastUpdated = useMemo(
+    () => (data?.fetchedAt ? new Date(data.fetchedAt) : new Date()),
+    [data?.fetchedAt]
+  );
+  const feedError = data?.error ?? null;
+
   const [filters, setFilters] = useState<Record<VehicleType, boolean>>({
     bus: true,
     rail: true,
@@ -31,18 +43,8 @@ function Index() {
   });
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<Vehicle | null>(null);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-
-  // Poll every 15s — currently drifts mock data; swap for edge function later.
-  useEffect(() => {
-    const id = setInterval(() => {
-      setVehicles((prev) => driftVehicles(prev));
-      setLastUpdated(new Date());
-    }, 15000);
-    return () => clearInterval(id);
-  }, []);
 
   const visibleVehicles = useMemo(
     () => vehicles.filter((v) => filters[v.vehicle_type]),
@@ -66,6 +68,11 @@ function Index() {
         onSelectVehicle={setActive}
         lastUpdated={lastUpdated}
       />
+      {feedError && (
+        <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive backdrop-blur">
+          Live feed: {feedError}
+        </div>
+      )}
     </main>
   );
 }
