@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { TransitMap } from "@/components/TransitMap";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+const TransitMap = lazy(() =>
+  import("@/components/TransitMap").then((m) => ({ default: m.TransitMap }))
+);
 import { TransitSidebar } from "@/components/TransitSidebar";
 import {
   driftVehicles,
@@ -30,6 +32,8 @@ function Index() {
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<Vehicle | null>(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Poll every 15s — currently drifts mock data; swap for edge function later.
   useEffect(() => {
@@ -47,7 +51,11 @@ function Index() {
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
-      <TransitMap vehicles={visibleVehicles} activeVehicle={active} />
+      {mounted && (
+        <Suspense fallback={null}>
+          <TransitMap vehicles={visibleVehicles} activeVehicle={active} />
+        </Suspense>
+      )}
       <TransitSidebar
         vehicles={vehicles}
         filters={filters}
