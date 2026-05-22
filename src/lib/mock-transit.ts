@@ -15,6 +15,7 @@ export interface TransitAlert {
   severity: "info" | "warning" | "critical";
   route: string;
   title: string;
+  description?: string; // Add this line
   time: string;
 }
 
