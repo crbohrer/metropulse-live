@@ -17,6 +17,28 @@ interface Feed {
   entity?: FeedEntity[];
 }
 
+export async function fetchLiveAlerts() {
+  const url = "https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?apiKey=4f22263f69671d7f49726c3011333e527368211f&asJson=true";
+  
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch alerts");
+    const data = await response.json();
+    
+    // Extract alerts from the Mecatran JSON structure
+    return data.entity.map((e: any) => ({
+      id: e.id,
+      severity: "warning", // You can map alert levels if needed
+      route: e.alert.informed_entity[0]?.route_id || "General",
+      title: e.alert.header_text.translation[0].text,
+      time: "Live"
+    }));
+  } catch (error) {
+    console.error("Error fetching alerts:", error);
+    return [];
+  }
+}
+
 // Valley Metro classification by route_id.
 // Light Rail = "RAIL" / "0" / "RL"; Streetcar = "SMC" / "TS"; everything else = bus.
 function classify(routeId: string | undefined): VehicleType {
