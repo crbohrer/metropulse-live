@@ -72,14 +72,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "MetroPulse" },
+      { name: "description", content: "MetroPulse Live provides an interactive, dark-mode transit tracking dashboard for Tempe, Arizona." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "MetroPulse" },
+      { property: "og:description", content: "MetroPulse Live provides an interactive, dark-mode transit tracking dashboard for Tempe, Arizona." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "MetroPulse" },
+      { name: "twitter:description", content: "MetroPulse Live provides an interactive, dark-mode transit tracking dashboard for Tempe, Arizona." },
     ],
     links: [
       {
