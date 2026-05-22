@@ -18,7 +18,9 @@ interface Feed {
 }
 
 export async function fetchLiveAlerts() {
-  const url = "https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?apiKey=4f22263f69671d7f49726c3011333e527368211f&asJson=true";
+  const apiKey = import.meta.env.VITE_MECATRAN_API_KEY;
+  // Inject the key into the URL using backticks (`) and ${}
+  const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?apiKey=${apiKey}&asJson=true`;
   
   try {
     const response = await fetch(url);
