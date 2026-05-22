@@ -171,6 +171,7 @@ export function TransitSidebar({
               {liveAlerts.map((a) => {
                 const Icon = severityIcon[a.severity];
                 const isExpanded = expandedAlert === a.id;
+                
                 return (
                   <li
                     key={a.id}
