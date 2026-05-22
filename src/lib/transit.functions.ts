@@ -17,29 +17,37 @@ interface Feed {
   entity?: FeedEntity[];
 }
 
-export async function fetchLiveAlerts() {
-  const apiKey = import.meta.env.VITE_MECATRAN_API_KEY;
-  // Inject the key into the URL using backticks (`) and ${}
-  const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?apiKey=${apiKey}&asJson=true`;
+// Replace the old fetchLiveAlerts with this:
+export const getLiveAlerts = createServerFn({ method: "GET" }).handler(async () => {
+  // Reuse the exact same server-side key that the vehicles are using!
+  const key = process.env.VALLEY_METRO_API_KEY; 
+  
+  if (!key) {
+    console.error("Missing VALLEY_METRO_API_KEY");
+    return [];
+  }
+
+  const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?apiKey=${key}&asJson=true`;
   
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { headers: { accept: "application/json" } });
     if (!response.ok) throw new Error("Failed to fetch alerts");
+    
     const data = await response.json();
     
     // Extract alerts from the Mecatran JSON structure
     return data.entity.map((e: any) => ({
       id: e.id,
-      severity: "warning", // You can map alert levels if needed
-      route: e.alert.informed_entity[0]?.route_id || "General",
-      title: e.alert.header_text.translation[0].text,
+      severity: "warning", 
+      route: e.alert.informed_entity?.[0]?.route_id || "General",
+      title: e.alert.header_text?.translation?.[0]?.text || "Alert",
       time: "Live"
     }));
   } catch (error) {
     console.error("Error fetching alerts:", error);
     return [];
   }
-}
+});
 
 // Valley Metro classification by route_id.
 // Light Rail = "RAIL" / "0" / "RL"; Streetcar = "SMC" / "TS"; everything else = bus.
