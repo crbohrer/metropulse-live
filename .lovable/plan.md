@@ -1,39 +1,29 @@
-# Wire real Valley Metro vehicle data into MetroPulse
+## What's wrong
 
-## Good news: no protobuf parsing required
+The current classifier in `src/lib/transit.functions.ts` only recognizes `RAIL`/`RL`/`0` as light rail and `SMC`/`TS` as streetcar. Looking at the live Mecatran feed right now, Valley Metro actually uses different route IDs:
 
-The feed URL you provided uses `asJson=true`:
+- **Light Rail**: `A` (A Line — Mesa ↔ downtown Phoenix, the one you noticed missing), `B` (B Line — downtown ↔ 19th Ave), and `0` (legacy/combined service still appearing in the feed). That's why only one rail line shows — `A` and `B` are currently being bucketed as buses.
+- **Tempe Streetcar**: route ID is `STRN` (confirmed via a vehicle in the feed labeled "Tempe Public Library"). The current code looks for `SMC`/`TS`, so every streetcar falls through to "bus" and then gets filtered out when you uncheck buses.
+- **Bus**: everything else (~569 vehicles ✓ matches what you're seeing).
 
+Also worth noting the feed contains neighborhood circulators (`DASH`, `MARS`, `JUPI`, `EART`, `VENU`, `MERC`, `MSTG`, `MLHD`, `ALEX`, `MARY`, `FLSH`, `SMRT`, `DBUZ`, `FBUZ`) — these are buses and will stay classified as such.
+
+## Plan
+
+Update `classify()` in `src/lib/transit.functions.ts`:
+
+```ts
+function classify(routeId: string | undefined): VehicleType {
+  if (!routeId) return "bus";
+  const r = routeId.toUpperCase();
+  if (r === "A" || r === "B" || r === "0") return "rail";
+  if (r === "STRN") return "streetcar";
+  return "bus";
+}
 ```
-https://mna.mecatran.com/utw/ws/gtfsfeed/vehicles/valleymetro?apiKey=...&asJson=true
-```
 
-Mecatran returns the GTFS-Realtime feed pre-decoded as JSON. We don't need `gtfs-realtime-bindings`, Python, or FastAPI — a single TanStack server function can fetch, normalize, and serve the data to the existing frontend polling loop.
+That's the entire fix — no UI, schema, or polling changes needed. After the swap you should see both A and B light rail lines plus the Tempe Streetcar running its short loop around Mill Ave / ASU / Marina Heights.
 
-## Steps
+## Where this info comes from
 
-1. **Store the API key as a runtime secret** (`VALLEY_METRO_API_KEY`) so it's not hardcoded in the repo. The feed URL becomes `https://mna.mecatran.com/utw/ws/gtfsfeed/vehicles/valleymetro?apiKey=${KEY}&asJson=true`.
-
-2. **Create `src/lib/transit.functions.ts`** with a `getLiveVehicles` server function (`createServerFn({ method: "GET" })`) that:
-   - Fetches the Mecatran JSON feed server-side (keeps the API key off the client).
-   - Maps each `entity.vehicle` into the existing `Vehicle` shape used by `TransitMap`/`TransitSidebar`: `id`, `lat`, `lng`, `routeId`, `type` (bus/rail/streetcar, inferred from route_id), `bearing`, `speed`, `label`, `lastUpdate`.
-   - Returns `{ vehicles, fetchedAt }` as a plain DTO.
-   - Wraps the fetch in try/catch; on failure returns `{ vehicles: [], error }` so the UI degrades cleanly instead of crashing.
-
-3. **Vehicle-type classification.** Valley Metro route IDs: light rail = `BLU`/`RED` (or numeric line IDs from the feed), streetcar = `TS`/`SC`, everything else = bus. I'll confirm the actual route_id strings from the live payload on the first fetch and adjust the mapping.
-
-4. **Swap the polling source in `src/routes/index.tsx`.** Replace the `driftVehicles` mock interval with `useQuery` calling the server fn via `useServerFn`, `refetchInterval: 15000`. Keep all existing filter/search/active-vehicle state untouched — only the data source changes. Mock data stays in `mock-transit.ts` as a fallback when the fetch errors (and for the alerts list, which isn't in the vehicles feed).
-
-5. **Loading + error UI.** Add a subtle "Last updated" timestamp (already in sidebar) plus a small inline error chip when the server fn returns an `error` field. No layout changes.
-
-## Technical notes
-
-- Feed is JSON, so no `gtfs-realtime-bindings`, no `protobufjs`, no Python service. Works inside the Cloudflare Worker runtime with plain `fetch`.
-- Server function keeps the API key out of the client bundle.
-- 15s polling is preserved; React Query handles dedupe and background refetch.
-- If you later switch to an agency that only publishes `.pb`, we'd add `protobufjs` + the GTFS-RT `.proto` schema in the same server function — still no external Python needed.
-
-## Out of scope
-
-- Live service alerts feed (separate Mecatran endpoint) — mock alerts remain for now; can wire in a follow-up.
-- Auth, database, persistence — none needed for this step.
+The Mecatran `asJson=true` feed already contains the streetcar — it's just under a non-obvious route ID. The authoritative source is Valley Metro's GTFS static `routes.txt` (published at `valleymetro.org/maps-schedules/data` / their developer page), which maps each `route_id` to a human name and `route_type` (0 = tram/streetcar/light-rail, 3 = bus). If we wanted to be bulletproof against future route renames, we could fetch and cache that static file once and classify by `route_type` instead of hardcoded IDs — happy to add that as a follow-up if you want it, but for now the three-ID patch is enough.
