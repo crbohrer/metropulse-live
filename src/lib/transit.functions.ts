@@ -81,6 +81,41 @@ function directionLabel(d: number | undefined, bearing: number | undefined): str
 // Bounding box around Tempe + surrounding service area (keeps map relevant).
 const BBOX = { minLat: 33.2, maxLat: 33.7, minLng: -112.4, maxLng: -111.7 };
 
+interface TripUpdateEntity {
+  id: string;
+  tripUpdate?: {
+    trip?: { tripId?: string; routeId?: string };
+    vehicle?: { id?: string };
+    stopTimeUpdate?: Array<{
+      stopSequence?: number;
+      arrival?: { delay?: number };
+      departure?: { delay?: number };
+    }>;
+  };
+}
+
+async function fetchDelaysByTripId(key: string): Promise<Map<string, number>> {
+  const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/realtime/valleymetro?apiKey=${key}&asJson=true`;
+  const delays = new Map<string, number>();
+  try {
+    const res = await fetch(url, { headers: { accept: "application/json" } });
+    if (!res.ok) return delays;
+    const feed = (await res.json()) as { entity?: TripUpdateEntity[] };
+    for (const e of feed.entity ?? []) {
+      const tu = e.tripUpdate;
+      const tripId = tu?.trip?.tripId;
+      if (!tripId || !tu?.stopTimeUpdate?.length) continue;
+      // Use the earliest upcoming stop's delay (first entry is typically the next stop).
+      const stu = tu.stopTimeUpdate[0];
+      const delay = stu?.arrival?.delay ?? stu?.departure?.delay;
+      if (typeof delay === "number") delays.set(tripId, delay);
+    }
+  } catch {
+    // swallow — vehicles still render without delay data
+  }
+  return delays;
+}
+
 export const getLiveVehicles = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ vehicles: Vehicle[]; fetchedAt: number; error: string | null }> => {
     const key = process.env.VALLEY_METRO_API_KEY;
@@ -89,7 +124,10 @@ export const getLiveVehicles = createServerFn({ method: "GET" }).handler(
     }
     const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/vehicles/valleymetro?apiKey=${key}&asJson=true`;
     try {
-      const res = await fetch(url, { headers: { accept: "application/json" } });
+      const [res, delaysByTrip] = await Promise.all([
+        fetch(url, { headers: { accept: "application/json" } }),
+        fetchDelaysByTripId(key),
+      ]);
       if (!res.ok) {
         return { vehicles: [], fetchedAt: Date.now(), error: `Feed HTTP ${res.status}` };
       }
@@ -108,14 +146,16 @@ export const getLiveVehicles = createServerFn({ method: "GET" }).handler(
           continue;
         }
         const routeId = v.trip?.routeId ?? "—";
+        const tripId = v.trip?.tripId;
         const type = classify(v.trip?.routeId);
+        const delay = tripId ? delaysByTrip.get(tripId) ?? 0 : 0;
         vehicles.push({
           id: e.id || v.vehicle?.id || `${routeId}-${vehicles.length}`,
           latitude: pos.latitude,
           longitude: pos.longitude,
           route_id: v.vehicle?.label ? `${routeId} · ${v.vehicle.label}` : routeId,
           direction: directionLabel(v.trip?.directionId, pos.bearing),
-          delay_seconds: 0,
+          delay_seconds: delay,
           vehicle_type: type,
         });
       }
