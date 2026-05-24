@@ -144,12 +144,12 @@ export function TransitSidebar({
                   <span className="truncate text-muted-foreground">{v.direction}</span>
                   <span
                     className={`ml-auto shrink-0 font-medium ${
-                      v.delay_seconds > 0 ? "text-amber-400" : v.delay_seconds < 1 ? "text-emerald-400" : "text-emerald-400"
+                      v.delay_seconds > 60 ? "text-amber-400" : v.delay_seconds < -60 ? "text-emerald-400" : "text-emerald-400"
                     }`}
                   >
-                    {v.delay_seconds > 0
+                    {v.delay_seconds > 60
                       ? `+${Math.floor(v.delay_seconds / 60)}m late`
-                      : v.delay_seconds < 1
+                      : v.delay_seconds < -60
                       ? `${Math.floor(Math.abs(v.delay_seconds) / 60)}m early`
                       : "On time"}
                   </span>
