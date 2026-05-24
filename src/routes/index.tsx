@@ -46,10 +46,14 @@ function Index() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const visibleVehicles = useMemo(
-    () => vehicles.filter((v) => filters[v.vehicle_type]),
-    [vehicles, filters]
-  );
+  const visibleVehicles = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return vehicles.filter(
+      (v) =>
+        filters[v.vehicle_type] &&
+        (q === "" || v.route_id.toLowerCase().includes(q))
+    );
+  }, [vehicles, filters, search]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
