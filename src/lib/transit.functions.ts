@@ -4,7 +4,7 @@ import type { Vehicle, VehicleType } from "./mock-transit";
 interface FeedEntity {
   id: string;
   vehicle?: {
-    trip?: { routeId?: string; directionId?: number };
+    trip?: { tripId?: string; routeId?: string; directionId?: number };
     position?: { latitude?: number; longitude?: number; bearing?: number; speed?: number };
     currentStatus?: string;
     timestamp?: string;
