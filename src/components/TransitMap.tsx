@@ -40,8 +40,10 @@ function FlyToActive({ vehicle }: { vehicle: Vehicle | null }) {
 
 function formatDelay(seconds: number) {
   if (!seconds) return "On time";
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+  const abs = Math.abs(seconds);
+  const m = Math.floor(abs / 60);
+  const s = abs % 60;
+  if (seconds < 0) return `${m}m ${s}s early`;
   return `+${m}m ${s}s late`;
 }
 
