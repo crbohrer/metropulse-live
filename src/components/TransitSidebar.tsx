@@ -10,7 +10,7 @@ interface Props {
   onSearch: (s: string) => void;
   alerts: TransitAlert[];
   onSelectVehicle: (v: Vehicle) => void;
-  lastUpdated: Date;
+  last: Date;
   activeVehicle: Vehicle | null;
   onClearSelection: () => void;
 }
@@ -41,7 +41,7 @@ export function TransitSidebar({
   onSearch,
   alerts,
   onSelectVehicle,
-  lastUpdated,
+  last,
   activeVehicle,
   onClearSelection,
 }: Props) {
@@ -144,7 +144,7 @@ export function TransitSidebar({
           Vehicles ({filtered.length})
         </h2>
         <span className="text-[10px] text-muted-foreground">
-          Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+           {last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
         </span>
       </div>
       <div className="-mr-2 mb-4 max-h-[28%] overflow-y-auto pr-2">
@@ -189,8 +189,8 @@ export function TransitSidebar({
         </h2>
         <div className="-mr-2 flex-1 overflow-y-auto pr-2">
           {liveAlerts.length === 0 ? (
-            <p className="py-4 text-center text-xs text-muted-foreground">
-              No current alerts as of {lastUpdated.toLocaleDateString()} {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            <p className="py-4 text-center text-xs text-muted-foreground" suppressHydrationWarning>
+              No current alerts as of {last.toLocaleDateString()} {last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
           ) : (
             <ul className="space-y-2">
