@@ -1,4 +1,4 @@
-import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio } from "lucide-react";
+import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X } from "lucide-react";
 import { useState, useEffect } from 'react';
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
 import { getLiveAlerts } from "@/lib/transit.functions";
@@ -11,6 +11,8 @@ interface Props {
   alerts: TransitAlert[];
   onSelectVehicle: (v: Vehicle) => void;
   lastUpdated: Date;
+  activeVehicle: Vehicle | null;
+  onClearSelection: () => void;
 }
 
 const typeMeta = {
@@ -40,6 +42,8 @@ export function TransitSidebar({
   alerts,
   onSelectVehicle,
   lastUpdated,
+  activeVehicle,
+  onClearSelection,
 }: Props) {
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
@@ -90,6 +94,24 @@ export function TransitSidebar({
           className="w-full rounded-xl border border-border bg-input/40 py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-foreground/70 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
         />
       </div>
+
+      {activeVehicle && (
+        <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/10 px-3 py-2">
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Showing route</div>
+            <div className="truncate text-sm font-semibold">Route {activeVehicle.route_id}</div>
+          </div>
+          <button
+            onClick={onClearSelection}
+            className="rounded-md p-1 text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+            aria-label="Clear selected route"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+
 
       {/* Filters */}
       <div className="mb-4 grid grid-cols-3 gap-2">

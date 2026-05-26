@@ -8,6 +8,7 @@ const TransitMap = lazy(() =>
 import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
 import { getLiveVehicles } from "@/lib/transit.functions";
+import { getRouteGeometry } from "@/lib/route-shapes.functions";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const fetchVehicles = useServerFn(getLiveVehicles);
+  const fetchRouteGeometry = useServerFn(getRouteGeometry);
   const { data } = useQuery({
     queryKey: ["live-vehicles"],
     queryFn: () => fetchVehicles(),
@@ -46,6 +48,14 @@ function Index() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  const { data: routeGeo } = useQuery({
+    queryKey: ["route-geo", active?.route_id],
+    queryFn: () =>
+      fetchRouteGeometry({ data: { routeId: active!.route_id } }),
+    enabled: !!active?.route_id,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const visibleVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
     return vehicles.filter(
@@ -59,7 +69,13 @@ function Index() {
     <main className="relative h-screen w-screen overflow-hidden">
       {mounted && (
         <Suspense fallback={null}>
-          <TransitMap vehicles={visibleVehicles} activeVehicle={active} />
+          <TransitMap
+            vehicles={visibleVehicles}
+            activeVehicle={active}
+            routeShape={active ? routeGeo?.shape ?? null : null}
+            routeStops={active ? routeGeo?.stops ?? null : null}
+            onClearSelection={() => setActive(null)}
+          />
         </Suspense>
       )}
       <TransitSidebar
@@ -71,6 +87,8 @@ function Index() {
         alerts={mockAlerts}
         onSelectVehicle={setActive}
         lastUpdated={lastUpdated}
+        activeVehicle={active}
+        onClearSelection={() => setActive(null)}
       />
       {feedError && (
         <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive backdrop-blur">
@@ -80,3 +98,4 @@ function Index() {
     </main>
   );
 }
+
