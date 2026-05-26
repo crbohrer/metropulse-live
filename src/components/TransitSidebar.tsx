@@ -95,6 +95,24 @@ export function TransitSidebar({
         />
       </div>
 
+      {activeVehicle && (
+        <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/10 px-3 py-2">
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Showing route</div>
+            <div className="truncate text-sm font-semibold">Route {activeVehicle.route_id}</div>
+          </div>
+          <button
+            onClick={onClearSelection}
+            className="rounded-md p-1 text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+            aria-label="Clear selected route"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+
+
       {/* Filters */}
       <div className="mb-4 grid grid-cols-3 gap-2">
         {(Object.keys(typeMeta) as VehicleType[]).map((t) => {
