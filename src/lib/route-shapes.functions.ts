@@ -41,7 +41,7 @@ export const getRouteGeometry = createServerFn({ method: "GET" })
 
     const stopsUrl =
       `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/BusStopsWAmenities/FeatureServer/0/query` +
-      `?where=${encodeURIComponent(`Routes_Served LIKE '%${routeId}%'`)}&outFields=*&f=geojson`;
+      `?where=${encodeURIComponent(`Routes LIKE '%${routeId}%'`)}&outFields=*&f=geojson`;
 
     const [shape, stops] = await Promise.all([
       fetchGeoJSON(shapeUrl),
