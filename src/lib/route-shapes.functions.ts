@@ -5,13 +5,14 @@ function cleanRouteId(raw: string): string {
   return raw.split("·")[0].trim();
 }
 
-interface GeoJSON {
+export interface GeoJSONFeature {
   type: string;
-  features: Array<{
-    type: string;
-    geometry: { type: string; coordinates: unknown };
-    properties: Record<string, unknown>;
-  }>;
+  geometry: { type: string; coordinates: number[] | number[][] | number[][][] };
+  properties: Record<string, string | number | boolean | null>;
+}
+export interface GeoJSON {
+  type: string;
+  features: GeoJSONFeature[];
 }
 
 async function fetchGeoJSON(url: string): Promise<GeoJSON | null> {
