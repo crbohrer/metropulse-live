@@ -50,8 +50,12 @@ function Index() {
 
   const { data: routeGeo } = useQuery({
     queryKey: ["route-geo", active?.route_id],
-    queryFn: () =>
-      fetchRouteGeometry({ data: { routeId: active!.route_id } }),
+    queryFn: () => {
+      // Split "72 · Label" and only take the "72" part to send to the database
+      const cleanRouteId = active!.route_id.split(" · ")[0].trim();
+      
+      return fetchRouteGeometry({ data: { routeId: cleanRouteId } });
+    },
     enabled: !!active?.route_id,
     staleTime: 5 * 60 * 1000,
   });
