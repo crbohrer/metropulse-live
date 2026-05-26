@@ -79,6 +79,7 @@ function Index() {
             routeShape={active ? routeGeo?.shape ?? null : null}
             routeStops={active ? routeGeo?.stops ?? null : null}
             onClearSelection={() => setActive(null)}
+            onSelectVehicle={setActive}
           />
         </Suspense>
       )}
