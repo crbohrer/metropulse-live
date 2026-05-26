@@ -64,11 +64,16 @@ interface Props {
   activeVehicle: Vehicle | null;
   routeShape: RouteGeoJSON | null;
   routeStops: RouteGeoJSON | null;
+  isRouteViewActive: boolean;
   onClearSelection: () => void;
   onSelectVehicle: (v: Vehicle) => void;
+  onShowRoute: () => void;
 }
 
-export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, onClearSelection, onSelectVehicle }: Props) {
+export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, isRouteViewActive, onClearSelection, onSelectVehicle, onShowRoute }: Props) {
+  const displayedVehicles = isRouteViewActive && activeVehicle
+    ? vehicles.filter((v) => v.id === activeVehicle.id)
+    : vehicles;
   const icons = useMemo(
     () => ({
       bus: buildIcon("bus"),
