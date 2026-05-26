@@ -106,7 +106,7 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
         <GeoJSONLayer
           key={`shape-${shapeKey}`}
           data={routeShape as never}
-          style={{ color: activeColor, weight: 5, opacity: 0.8 }}
+          style={{ color: activeColor, weight: 6, opacity: 0.85 }}
         />
       )}
 
