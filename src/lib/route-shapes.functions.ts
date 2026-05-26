@@ -37,7 +37,7 @@ export const getRouteGeometry = createServerFn({ method: "GET" })
 
     const shapeUrl =
       `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroBusRoutes/FeatureServer/0/query` +
-      `?where=${encodeURIComponent(`Route='${routeId}'`)}&outFields=*&f=geojson`;
+      `?where=${encodeURIComponent(`route_id='${routeId}'`)}&outFields=*&f=geojson`;
 
     const stopsUrl =
       `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/BusStopsWAmenities/FeatureServer/0/query` +
