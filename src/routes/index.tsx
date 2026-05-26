@@ -77,10 +77,18 @@ function Index() {
           <TransitMap
             vehicles={visibleVehicles}
             activeVehicle={active}
-            routeShape={active ? routeGeo?.shape ?? null : null}
-            routeStops={active ? routeGeo?.stops ?? null : null}
-            onClearSelection={() => setActive(null)}
-            onSelectVehicle={setActive}
+            routeShape={active && isRouteViewActive ? routeGeo?.shape ?? null : null}
+            routeStops={active && isRouteViewActive ? routeGeo?.stops ?? null : null}
+            isRouteViewActive={isRouteViewActive}
+            onClearSelection={() => {
+              setActive(null);
+              setIsRouteViewActive(false);
+            }}
+            onSelectVehicle={(v) => {
+              setActive(v);
+              setIsRouteViewActive(false);
+            }}
+            onShowRoute={() => setIsRouteViewActive(true)}
           />
         </Suspense>
       )}
@@ -91,10 +99,16 @@ function Index() {
         search={search}
         onSearch={setSearch}
         alerts={mockAlerts}
-        onSelectVehicle={setActive}
-        lastUpdated={lastUpdated}
+        onSelectVehicle={(v) => {
+          setActive(v);
+          setIsRouteViewActive(false);
+        }}
+        last={lastUpdated}
         activeVehicle={active}
-        onClearSelection={() => setActive(null)}
+        onClearSelection={() => {
+          setActive(null);
+          setIsRouteViewActive(false);
+        }}
       />
       {feedError && (
         <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive backdrop-blur">
