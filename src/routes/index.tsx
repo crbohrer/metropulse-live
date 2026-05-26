@@ -45,6 +45,7 @@ function Index() {
   });
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<Vehicle | null>(null);
+  const [isRouteViewActive, setIsRouteViewActive] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
