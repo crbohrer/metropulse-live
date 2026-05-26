@@ -1,0 +1,51 @@
+import { createServerFn } from "@tanstack/react-start";
+
+// Strip any "label" suffix like "72 · 1234" → "72"
+function cleanRouteId(raw: string): string {
+  return raw.split("·")[0].trim();
+}
+
+interface GeoJSON {
+  type: string;
+  features: Array<{
+    type: string;
+    geometry: { type: string; coordinates: unknown };
+    properties: Record<string, unknown>;
+  }>;
+}
+
+async function fetchGeoJSON(url: string): Promise<GeoJSON | null> {
+  try {
+    const res = await fetch(url, { headers: { accept: "application/json" } });
+    if (!res.ok) return null;
+    const data = (await res.json()) as GeoJSON;
+    if (!data?.features) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+export const getRouteGeometry = createServerFn({ method: "GET" })
+  .inputValidator((data: { routeId: string }) => data)
+  .handler(async ({ data }) => {
+    const routeId = cleanRouteId(data.routeId);
+    if (!routeId || routeId === "—") {
+      return { shape: null, stops: null, routeId };
+    }
+
+    const shapeUrl =
+      `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroBusRoutes/FeatureServer/0/query` +
+      `?where=${encodeURIComponent(`Route='${routeId}'`)}&outFields=*&f=geojson`;
+
+    const stopsUrl =
+      `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/BusStopsWAmenities/FeatureServer/0/query` +
+      `?where=${encodeURIComponent(`Routes_Served LIKE '%${routeId}%'`)}&outFields=*&f=geojson`;
+
+    const [shape, stops] = await Promise.all([
+      fetchGeoJSON(shapeUrl),
+      fetchGeoJSON(stopsUrl),
+    ]);
+
+    return { shape, stops, routeId };
+  });
