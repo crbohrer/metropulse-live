@@ -143,7 +143,7 @@ export function TransitSidebar({
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Vehicles ({filtered.length})
         </h2>
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-[10px] text-muted-foreground" suppressHydrationWarning>
            {last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
         </span>
       </div>
