@@ -65,9 +65,10 @@ interface Props {
   routeShape: RouteGeoJSON | null;
   routeStops: RouteGeoJSON | null;
   onClearSelection: () => void;
+  onSelectVehicle: (v: Vehicle) => void;
 }
 
-export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, onClearSelection }: Props) {
+export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, onClearSelection, onSelectVehicle }: Props) {
   const icons = useMemo(
     () => ({
       bus: buildIcon("bus"),
@@ -142,6 +143,7 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, on
           key={v.id}
           position={[v.latitude, v.longitude]}
           icon={icons[v.vehicle_type]}
+          eventHandlers={{ click: () => onSelectVehicle(v) }}
         >
           <Popup>
             <div className="space-y-1">
