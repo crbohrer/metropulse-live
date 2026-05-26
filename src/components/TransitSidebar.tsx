@@ -1,4 +1,4 @@
-import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio } from "lucide-react";
+import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X } from "lucide-react";
 import { useState, useEffect } from 'react';
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
 import { getLiveAlerts } from "@/lib/transit.functions";
@@ -11,6 +11,8 @@ interface Props {
   alerts: TransitAlert[];
   onSelectVehicle: (v: Vehicle) => void;
   lastUpdated: Date;
+  activeVehicle: Vehicle | null;
+  onClearSelection: () => void;
 }
 
 const typeMeta = {
@@ -40,6 +42,8 @@ export function TransitSidebar({
   alerts,
   onSelectVehicle,
   lastUpdated,
+  activeVehicle,
+  onClearSelection,
 }: Props) {
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
