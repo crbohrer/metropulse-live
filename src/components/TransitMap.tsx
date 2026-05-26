@@ -1,7 +1,8 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON as GeoJSONLayer, CircleMarker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, useMemo } from "react";
 import type { Vehicle, VehicleType } from "@/lib/mock-transit";
+import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
 
 const TEMPE_CENTER: [number, number] = [33.4255, -111.94];
 
@@ -15,6 +16,12 @@ const typeLabel: Record<VehicleType, string> = {
   bus: "Bus",
   rail: "Light Rail",
   streetcar: "Streetcar",
+};
+
+const typeColor: Record<VehicleType, string> = {
+  bus: "oklch(0.7 0.18 240)",
+  rail: "oklch(0.65 0.22 300)",
+  streetcar: "oklch(0.75 0.18 55)",
 };
 
 function buildIcon(type: VehicleType) {
@@ -38,6 +45,11 @@ function FlyToActive({ vehicle }: { vehicle: Vehicle | null }) {
   return null;
 }
 
+function MapClickHandler({ onBackgroundClick }: { onBackgroundClick: () => void }) {
+  useMapEvents({ click: () => onBackgroundClick() });
+  return null;
+}
+
 function formatDelay(seconds: number) {
   if (!seconds) return "On time";
   const abs = Math.abs(seconds);
@@ -50,9 +62,12 @@ function formatDelay(seconds: number) {
 interface Props {
   vehicles: Vehicle[];
   activeVehicle: Vehicle | null;
+  routeShape: RouteGeoJSON | null;
+  routeStops: RouteGeoJSON | null;
+  onClearSelection: () => void;
 }
 
-export function TransitMap({ vehicles, activeVehicle }: Props) {
+export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, onClearSelection }: Props) {
   const icons = useMemo(
     () => ({
       bus: buildIcon("bus"),
@@ -61,6 +76,11 @@ export function TransitMap({ vehicles, activeVehicle }: Props) {
     }),
     []
   );
+
+  const activeColor = activeVehicle ? typeColor[activeVehicle.vehicle_type] : typeColor.bus;
+
+  // Force GeoJSON layer to remount when route changes
+  const shapeKey = activeVehicle?.route_id ?? "none";
 
   return (
     <MapContainer
@@ -73,7 +93,50 @@ export function TransitMap({ vehicles, activeVehicle }: Props) {
         attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
+      <MapClickHandler onBackgroundClick={onClearSelection} />
       <FlyToActive vehicle={activeVehicle} />
+
+      {routeShape && routeShape.features.length > 0 && (
+        <GeoJSONLayer
+          key={`shape-${shapeKey}`}
+          data={routeShape as never}
+          style={{ color: activeColor, weight: 5, opacity: 0.8 }}
+        />
+      )}
+
+      {routeStops?.features.map((f, i) => {
+        if (f.geometry.type !== "Point") return null;
+        const coords = f.geometry.coordinates as number[];
+        const [lng, lat] = coords;
+        if (typeof lat !== "number" || typeof lng !== "number") return null;
+        const name =
+          (f.properties.Stop_Name as string) ||
+          (f.properties.StopName as string) ||
+          (f.properties.STOPNAME as string) ||
+          "Bus stop";
+        return (
+          <CircleMarker
+            key={`stop-${shapeKey}-${i}`}
+            center={[lat, lng]}
+            radius={4}
+            pathOptions={{
+              color: activeColor,
+              fillColor: "#0b0b15",
+              fillOpacity: 1,
+              weight: 2,
+            }}
+          >
+            <Popup>
+              <div className="space-y-1">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">Stop</div>
+                <div className="text-sm font-semibold">{name}</div>
+                <div className="text-xs opacity-70">Live arrival times coming soon</div>
+              </div>
+            </Popup>
+          </CircleMarker>
+        );
+      })}
+
       {vehicles.map((v) => (
         <Marker
           key={v.id}
