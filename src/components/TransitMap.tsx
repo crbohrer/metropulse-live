@@ -124,12 +124,12 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
           <CircleMarker
             key={`stop-${shapeKey}-${i}`}
             center={[lat, lng]}
-            radius={4}
+            radius={6}
             pathOptions={{
               color: activeColor,
               fillColor: "#0b0b15",
               fillOpacity: 1,
-              weight: 2,
+              weight: 3,
             }}
           >
             <Popup>
