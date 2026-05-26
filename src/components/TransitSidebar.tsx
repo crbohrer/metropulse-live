@@ -144,8 +144,8 @@ export function TransitSidebar({
           Vehicles ({filtered.length})
         </h2>
         <span className="text-[10px] text-muted-foreground" suppressHydrationWarning>
-           {last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-        </span>
+            {last ? last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "..."}
+          </span>
       </div>
       <div className="-mr-2 mb-4 max-h-[28%] overflow-y-auto pr-2">
         {filtered.length === 0 && (
@@ -190,7 +190,7 @@ export function TransitSidebar({
         <div className="-mr-2 flex-1 overflow-y-auto pr-2">
           {liveAlerts.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground" suppressHydrationWarning>
-              No current alerts as of {last.toLocaleDateString()} {last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              No current alerts as of {last ? `${last.toLocaleDateString()} ${last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "..."}
             </p>
           ) : (
             <ul className="space-y-2">
