@@ -112,31 +112,46 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
 
       {routeStops?.features.map((f, i) => {
         if (f.geometry.type !== "Point") return null;
+
+        // 1. DIRECTION FILTER: 
+        // Only show this stop if its direction matches the vehicle we clicked
+        const stopDir = f.properties.Direction as string;
+        if (activeVehicle?.direction && stopDir && stopDir.trim() !== "") {
+           if (stopDir.toLowerCase() !== activeVehicle.direction.toLowerCase()) {
+               return null; // Skip drawing this stop!
+           }
+        }
+
         const coords = f.geometry.coordinates as number[];
         const [lng, lat] = coords;
         if (typeof lat !== "number" || typeof lng !== "number") return null;
+        
+        // 2. STOP NAME FIX: 
+        // Add "stop_name" (lowercase) to the front of the line
         const name =
+          (f.properties.stop_name as string) || 
           (f.properties.Stop_Name as string) ||
           (f.properties.StopName as string) ||
           (f.properties.STOPNAME as string) ||
           "Bus stop";
+
         return (
           <CircleMarker
             key={`stop-${shapeKey}-${i}`}
             center={[lat, lng]}
-            radius={6}
+            radius={4}
             pathOptions={{
               color: activeColor,
               fillColor: "#0b0b15",
               fillOpacity: 1,
-              weight: 3,
+              weight: 2,
             }}
           >
             <Popup>
               <div className="space-y-1">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">Stop</div>
                 <div className="text-sm font-semibold">{name}</div>
-                <div className="text-xs opacity-70">Live ETA: Coming Soon</div>
+                <div className="text-xs opacity-70">Live arrival times coming soon</div>
               </div>
             </Popup>
           </CircleMarker>
