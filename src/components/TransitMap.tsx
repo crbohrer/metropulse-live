@@ -64,11 +64,16 @@ interface Props {
   activeVehicle: Vehicle | null;
   routeShape: RouteGeoJSON | null;
   routeStops: RouteGeoJSON | null;
+  isRouteViewActive: boolean;
   onClearSelection: () => void;
   onSelectVehicle: (v: Vehicle) => void;
+  onShowRoute: () => void;
 }
 
-export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, onClearSelection, onSelectVehicle }: Props) {
+export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, isRouteViewActive, onClearSelection, onSelectVehicle, onShowRoute }: Props) {
+  const displayedVehicles = isRouteViewActive && activeVehicle
+    ? vehicles.filter((v) => v.id === activeVehicle.id)
+    : vehicles;
   const icons = useMemo(
     () => ({
       bus: buildIcon("bus"),
@@ -101,7 +106,7 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, on
         <GeoJSONLayer
           key={`shape-${shapeKey}`}
           data={routeShape as never}
-          style={{ color: activeColor, weight: 5, opacity: 0.8 }}
+          style={{ color: activeColor, weight: 6, opacity: 0.85 }}
         />
       )}
 
@@ -119,34 +124,35 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, on
           <CircleMarker
             key={`stop-${shapeKey}-${i}`}
             center={[lat, lng]}
-            radius={4}
+            radius={6}
             pathOptions={{
               color: activeColor,
               fillColor: "#0b0b15",
               fillOpacity: 1,
-              weight: 2,
+              weight: 3,
             }}
           >
             <Popup>
               <div className="space-y-1">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">Stop</div>
                 <div className="text-sm font-semibold">{name}</div>
-                <div className="text-xs opacity-70">Live arrival times coming soon</div>
+                <div className="text-xs opacity-70">Live ETA: Coming Soon</div>
               </div>
             </Popup>
           </CircleMarker>
         );
       })}
 
-      {vehicles.map((v) => (
+      {displayedVehicles.map((v) => (
         <Marker
           key={v.id}
           position={[v.latitude, v.longitude]}
           icon={icons[v.vehicle_type]}
+          zIndexOffset={activeVehicle?.id === v.id ? 1000 : 0}
           eventHandlers={{ click: () => onSelectVehicle(v) }}
         >
           <Popup>
-            <div className="space-y-1">
+            <div className="space-y-2 min-w-[180px]">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs uppercase tracking-wider text-muted-foreground">
                   {typeLabel[v.vehicle_type]}
@@ -157,11 +163,23 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, on
               <div className="text-sm opacity-80">{v.direction}</div>
               <div
                 className={`text-sm font-medium ${
-                  v.delay_seconds > 0 ? "text-destructive" : "text-emerald-400"
+                  v.delay_seconds > 60 ? "text-amber-500" : "text-emerald-500"
                 }`}
               >
                 {formatDelay(v.delay_seconds)}
               </div>
+              {!isRouteViewActive && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onShowRoute();
+                  }}
+                  className="mt-1 w-full rounded-md px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+                  style={{ backgroundColor: typeColor[v.vehicle_type] }}
+                >
+                  Show Route
+                </button>
+              )}
             </div>
           </Popup>
         </Marker>
