@@ -136,7 +136,7 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
               <div className="space-y-1">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">Stop</div>
                 <div className="text-sm font-semibold">{name}</div>
-                <div className="text-xs opacity-70">Live arrival times coming soon</div>
+                <div className="text-xs opacity-70">Live ETA: Coming Soon</div>
               </div>
             </Popup>
           </CircleMarker>
