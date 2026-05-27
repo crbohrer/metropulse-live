@@ -127,8 +127,8 @@ interface TripUpdateEntity {
     stopTimeUpdate?: Array<{
       stopSequence?: number;
       stopId?: string;
-      arrival?: { delay?: number; time?: number };
-      departure?: { delay?: number; time?: number };
+      arrival?: { delay?: number; time?: number | string };
+      departure?: { delay?: number; time?: number | string };
     }>;
   };
 }
