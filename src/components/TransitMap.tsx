@@ -95,23 +95,9 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
   if (!routeShape) return [];
   const lines: LngLat[][] = [];
 
-  // DEBUG: See what IDs we actually have in our data
-  console.log("Available features in shape:", routeShape.features.map(f => f.properties.route_id));
-
   for (const f of routeShape.features) {
     const g = f.geometry;
     if (!g) continue;
-
-    // FUZZY MATCH: Allow drawing if the feature's route_id "contains" our active route_id
-    // This fixes the issue where "Light Rail" vs "A" prevents the line from drawing
-    const featureId = String(f.properties.route_id || "").toLowerCase();
-    const activeId = String(activeVehicle?.route_id || "").toLowerCase();
-    
-    if (!featureId.includes(activeId) && !activeId.includes(featureId)) {
-        // If they don't match, we continue (skip this feature)
-        // EXCEPT if it's a Rail vehicle, which often has weird ID formatting
-        if (activeVehicle?.vehicle_type === "bus") continue; 
-    }
 
     if (g.type === "LineString") {
       lines.push(g.coordinates as LngLat[]);
@@ -122,7 +108,7 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
     }
   }
   return lines;
-}, [routeShape, activeVehicle]);
+}, [routeShape]);
 
   // Find nearest point on any line to the active vehicle, then split that line.
   const ghosted = useMemo(() => {
@@ -200,22 +186,7 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
         if (f.geometry.type !== "Point") return null;
 
         // 2. VEHICLE TYPE & ROUTE FILTER
-        const serviceType = (f.properties.ServiceType as string || "").toLowerCase();
-        const stationRoutes = (f.properties.Routes as string) || ""; 
-        const isCorrectRoute = stationRoutes.includes(activeVehicle?.route_id || "");
 
-        // Only apply rail/streetcar filters IF the ServiceType field actually exists
-        if (activeVehicle?.vehicle_type === "rail" || activeVehicle?.vehicle_type === "streetcar") {
-            const isRail = serviceType.includes("light rail");
-            const isStreetcar = serviceType.includes("streetcar");
-            
-            if (activeVehicle?.vehicle_type === "rail" && !isRail) return null;
-            if (activeVehicle?.vehicle_type === "streetcar" && !isStreetcar) return null;
-        }
-        
-        // Ensure the station belongs to the active route
-        // If the station data is missing the 'Routes' field, we allow it (don't return null)
-        if (stationRoutes && !isCorrectRoute) return null;
         // 3. DIRECTION FILTER: 
         // Only show this stop if its direction matches the vehicle we clicked
         // 3. DIRECTION FILTER (Fuzzy match)
@@ -223,9 +194,8 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
         const vehicleDir = (activeVehicle?.direction as string || "").toLowerCase();
 
         if (activeVehicle?.direction && stopDir !== "") {
-          // If the bus direction contains "North" and the stop is "Northbound", it's a match
           if (!stopDir.includes(vehicleDir.split(" ")[0]) && !vehicleDir.includes(stopDir.split(" ")[0])) {
-            return null; 
+            return null;
           }
         }
 
