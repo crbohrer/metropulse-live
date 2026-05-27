@@ -188,17 +188,18 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
         const stationRoutes = (f.properties.Routes as string) || ""; 
         const isCorrectRoute = stationRoutes.includes(activeVehicle?.route_id || "");
 
-        // FIX: Explicitly match vehicle_type to the correct ServiceType string
-        if (activeVehicle?.vehicle_type === "rail") {
-          // If it's a light rail vehicle, we must only show "light rail" stations
-          if (!serviceType.includes("light rail")) return null;
-        } else if (activeVehicle?.vehicle_type === "streetcar") {
-          // If it's a streetcar vehicle, we must only show "streetcar" stations
-          if (!serviceType.includes("streetcar")) return null;
+        // Only apply rail/streetcar filters IF the ServiceType field actually exists
+        if (activeVehicle?.vehicle_type === "rail" || activeVehicle?.vehicle_type === "streetcar") {
+            const isRail = serviceType.includes("light rail");
+            const isStreetcar = serviceType.includes("streetcar");
+            
+            if (activeVehicle?.vehicle_type === "rail" && !isRail) return null;
+            if (activeVehicle?.vehicle_type === "streetcar" && !isStreetcar) return null;
         }
         
         // Ensure the station belongs to the active route
-        if (!isCorrectRoute) return null;
+        // If the station data is missing the 'Routes' field, we allow it (don't return null)
+        if (stationRoutes && !isCorrectRoute) return null;
         // 3. DIRECTION FILTER: 
         // Only show this stop if its direction matches the vehicle we clicked
         // 3. DIRECTION FILTER (Fuzzy match)
