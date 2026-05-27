@@ -92,21 +92,37 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
 
   // Extract all LineString rings from the route shape.
   const routeLines = useMemo<LngLat[][]>(() => {
-    if (!routeShape) return [];
-    const lines: LngLat[][] = [];
-    for (const f of routeShape.features) {
-      const g = f.geometry;
-      if (!g) continue;
-      if (g.type === "LineString") {
-        lines.push(g.coordinates as LngLat[]);
-      } else if (g.type === "MultiLineString") {
-        for (const part of g.coordinates as unknown as LngLat[][]) {
-          lines.push(part);
-        }
+  if (!routeShape) return [];
+  const lines: LngLat[][] = [];
+
+  // DEBUG: See what IDs we actually have in our data
+  console.log("Available features in shape:", routeShape.features.map(f => f.properties.route_id));
+
+  for (const f of routeShape.features) {
+    const g = f.geometry;
+    if (!g) continue;
+
+    // FUZZY MATCH: Allow drawing if the feature's route_id "contains" our active route_id
+    // This fixes the issue where "Light Rail" vs "A" prevents the line from drawing
+    const featureId = String(f.properties.route_id || "").toLowerCase();
+    const activeId = String(activeVehicle?.route_id || "").toLowerCase();
+    
+    if (!featureId.includes(activeId) && !activeId.includes(featureId)) {
+        // If they don't match, we continue (skip this feature)
+        // EXCEPT if it's a Rail vehicle, which often has weird ID formatting
+        if (activeVehicle?.vehicle_type === "bus") continue; 
+    }
+
+    if (g.type === "LineString") {
+      lines.push(g.coordinates as LngLat[]);
+    } else if (g.type === "MultiLineString") {
+      for (const part of g.coordinates as unknown as LngLat[][]) {
+        lines.push(part);
       }
     }
-    return lines;
-  }, [routeShape]);
+  }
+  return lines;
+}, [routeShape, activeVehicle]);
 
   // Find nearest point on any line to the active vehicle, then split that line.
   const ghosted = useMemo(() => {
