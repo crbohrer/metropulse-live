@@ -181,6 +181,7 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
 
       {routeStops?.features.map((f, i) => {
         if (f.geometry.type !== "Point") return null;
+        console.log("Rail Stop Props:", f.properties);
 
         // 1. DIRECTION FILTER: 
         // Only show this stop if its direction matches the vehicle we clicked
