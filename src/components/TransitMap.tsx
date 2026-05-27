@@ -192,11 +192,15 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
         if (serviceType === "Streetcar" && activeVehicle?.vehicle_type === "streetcar" && !isCorrectRoute) return null;
         // 3. DIRECTION FILTER: 
         // Only show this stop if its direction matches the vehicle we clicked
-        const stopDir = f.properties.Direction as string;
-        if (activeVehicle?.direction && stopDir && stopDir.trim() !== "") {
-           if (stopDir.toLowerCase() !== activeVehicle.direction.toLowerCase()) {
-               return null; // Skip drawing this stop!
-           }
+        // 3. DIRECTION FILTER (Fuzzy match)
+        const stopDir = (f.properties.Direction as string || "").toLowerCase();
+        const vehicleDir = (activeVehicle?.direction as string || "").toLowerCase();
+
+        if (activeVehicle?.direction && stopDir !== "") {
+          // If the bus direction contains "North" and the stop is "Northbound", it's a match
+          if (!stopDir.includes(vehicleDir.split(" ")[0]) && !vehicleDir.includes(stopDir.split(" ")[0])) {
+            return null; 
+          }
         }
 
         const coords = f.geometry.coordinates as number[];
