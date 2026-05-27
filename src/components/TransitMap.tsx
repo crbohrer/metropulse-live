@@ -160,13 +160,13 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
               <div className="space-y-1">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">Stop</div>
                 <div className="text-sm font-semibold">{name}</div>
-                {etaLabel ? (
-                  <div className="text-xs font-medium text-emerald-500" suppressHydrationWarning>
-                    Live ETA: {etaLabel}
-                  </div>
-                ) : (
-                  <div className="text-xs opacity-70">Scheduled stop</div>
-                )}
+                <div className="text-xs opacity-70">
+                  {etaTs ? (
+                    `Arrival: ${new Date(etaTs * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                  ) : (
+                    "No live ETA available"
+                  )}
+                </div>
               </div>
             </Popup>
           </CircleMarker>
