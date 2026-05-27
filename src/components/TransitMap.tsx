@@ -65,12 +65,13 @@ interface Props {
   routeShape: RouteGeoJSON | null;
   routeStops: RouteGeoJSON | null;
   isRouteViewActive: boolean;
+  liveEtas: Record<string, number> | null;
   onClearSelection: () => void;
   onSelectVehicle: (v: Vehicle) => void;
   onShowRoute: () => void;
 }
 
-export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, isRouteViewActive, onClearSelection, onSelectVehicle, onShowRoute }: Props) {
+export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, isRouteViewActive, liveEtas, onClearSelection, onSelectVehicle, onShowRoute }: Props) {
   const displayedVehicles = isRouteViewActive && activeVehicle
     ? vehicles.filter((v) => v.id === activeVehicle.id)
     : vehicles;
@@ -135,6 +136,12 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
           (f.properties.STOPNAME as string) ||
           "Bus stop";
 
+        const stopId = f.properties.stop_id as string;
+        const etaTs = stopId && liveEtas ? liveEtas[stopId] : undefined;
+        const etaLabel = typeof etaTs === "number"
+          ? new Date(etaTs * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+          : null;
+
         return (
           <CircleMarker
             key={`stop-${shapeKey}-${i}`}
@@ -151,7 +158,13 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
               <div className="space-y-1">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">Stop</div>
                 <div className="text-sm font-semibold">{name}</div>
-                <div className="text-xs opacity-70">Live arrival times coming soon</div>
+                {etaLabel ? (
+                  <div className="text-xs font-medium text-emerald-500" suppressHydrationWarning>
+                    Live ETA: {etaLabel}
+                  </div>
+                ) : (
+                  <div className="text-xs opacity-70">Scheduled stop</div>
+                )}
               </div>
             </Popup>
           </CircleMarker>

@@ -7,7 +7,7 @@ const TransitMap = lazy(() =>
 );
 import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
-import { getLiveVehicles } from "@/lib/transit.functions";
+import { getLiveVehicles, getTripUpdates } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
 
 export const Route = createFileRoute("/")({
@@ -23,6 +23,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   const fetchVehicles = useServerFn(getLiveVehicles);
   const fetchRouteGeometry = useServerFn(getRouteGeometry);
+  const fetchTripUpdates = useServerFn(getTripUpdates);
   const { data } = useQuery({
     queryKey: ["live-vehicles"],
     queryFn: () => fetchVehicles(),
@@ -61,6 +62,13 @@ function Index() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: tripUpdates } = useQuery({
+    queryKey: ["trip-updates", active?.id],
+    queryFn: () => fetchTripUpdates({ data: { vehicleId: active!.id } }),
+    enabled: !!active && isRouteViewActive,
+    refetchInterval: 15000,
+  });
+
   const visibleVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
     return vehicles.filter(
@@ -80,6 +88,7 @@ function Index() {
             routeShape={active && isRouteViewActive ? routeGeo?.shape ?? null : null}
             routeStops={active && isRouteViewActive ? routeGeo?.stops ?? null : null}
             isRouteViewActive={isRouteViewActive}
+            liveEtas={isRouteViewActive ? tripUpdates?.etas ?? null : null}
             onClearSelection={() => {
               setActive(null);
               setIsRouteViewActive(false);
