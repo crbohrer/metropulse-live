@@ -88,6 +88,7 @@ function Index() {
             routeShape={active && isRouteViewActive ? routeGeo?.shape ?? null : null}
             routeStops={active && isRouteViewActive ? routeGeo?.stops ?? null : null}
             isRouteViewActive={isRouteViewActive}
+            liveEtas={isRouteViewActive ? tripUpdates?.etas ?? null : null}
             onClearSelection={() => {
               setActive(null);
               setIsRouteViewActive(false);
