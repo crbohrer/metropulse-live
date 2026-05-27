@@ -115,8 +115,9 @@ interface TripUpdateEntity {
     vehicle?: { id?: string };
     stopTimeUpdate?: Array<{
       stopSequence?: number;
-      arrival?: { delay?: number };
-      departure?: { delay?: number };
+      stopId?: string;
+      arrival?: { delay?: number; time?: number };
+      departure?: { delay?: number; time?: number };
     }>;
   };
 }
