@@ -152,12 +152,21 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
           <Polyline
             key={`passed-${shapeKey}`}
             positions={toLatLng(ghosted.passed)}
-            pathOptions={{ color: "#6b7280", weight: 4, opacity: 0.4 }}
+            pathOptions={{ 
+              color: "#ef4444", // Tailwind 'red-500'
+              weight: 4, 
+              opacity: 0.3,     // Very transparent
+              dashArray: "4, 8" // Added a dash pattern to make it look "faded"
+            }}
           />
           <Polyline
             key={`upcoming-${shapeKey}`}
             positions={toLatLng(ghosted.upcoming)}
-            pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
+            pathOptions={{ 
+              color: activeColor, 
+              weight: 7,        // Keep it bold
+              opacity: 1.0 
+            }}
           />
         </>
       ) : (
