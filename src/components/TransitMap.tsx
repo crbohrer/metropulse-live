@@ -88,7 +88,7 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
 
   // Force GeoJSON layer to remount when route changes
   const shapeKey = activeVehicle?.route_id ?? "none";
-  console.log("Live ETAs from Server:", props.liveEtas);
+  console.log("Live ETAs from Server:", liveEtas);
 
   return (
     <MapContainer
