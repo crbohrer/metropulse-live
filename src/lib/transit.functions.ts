@@ -84,6 +84,7 @@ const BBOX = { minLat: 33.2, maxLat: 33.7, minLng: -112.4, maxLng: -111.7 };
 export const getTripUpdates = createServerFn({ method: "GET" })
   .inputValidator((data: { vehicleId: string }) => data)
   .handler(async ({ data }): Promise<{ etas: Record<string, number> }> => {
+    console.log("DEBUG: Looking for Trip/Vehicle ID:", data.vehicleId);
     const key = process.env.VALLEY_METRO_API_KEY;
     if (!key || !data.vehicleId) return { etas: {} };
     const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/realtime/valleymetro?apiKey=${key}&asJson=true`;
@@ -92,9 +93,13 @@ export const getTripUpdates = createServerFn({ method: "GET" })
       if (!res.ok) return { etas: {} };
       const feed = (await res.json()) as { entity?: TripUpdateEntity[] };
       const etas: Record<string, number> = {};
+      console.log("DEBUG: Feed entity count:", feed.entity?.length);
       for (const e of feed.entity ?? []) {
         const tu = e.tripUpdate;
         if (!tu) continue;
+        if (tu.trip?.tripId === data.vehicleId || tu.vehicle?.id === data.vehicleId) {
+           console.log("DEBUG: FOUND MATCH for ID:", data.vehicleId);
+        }
         if (tu.trip?.tripId !== data.vehicleId && tu.vehicle?.id !== data.vehicleId) continue;
         for (const stu of tu.stopTimeUpdate ?? []) {
           const stopId = stu.stopId;
@@ -102,6 +107,7 @@ export const getTripUpdates = createServerFn({ method: "GET" })
           if (stopId && typeof t === "number") etas[stopId] = t;
         }
       }
+      console.log("DEBUG: Final ETAs object:", etas);
       return { etas };
     } catch {
       return { etas: {} };
