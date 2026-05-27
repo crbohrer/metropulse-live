@@ -198,11 +198,13 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
         // 2. STOP NAME FIX: 
         // Add "stop_name" (lowercase) to the front of the line
         const name =
-          (f.properties.stop_name as string) || 
+          (f.properties.stop_name as string) ||
+          (f.properties.StationName as string) ||
+          (f.properties.STATION as string) ||
           (f.properties.Stop_Name as string) ||
           (f.properties.StopName as string) ||
           (f.properties.STOPNAME as string) ||
-          "Bus stop";
+          "Transit Stop";
 
         const internalStopId = String(f.properties.stop_id);
         const publicStopCode = String(f.properties.stop_code);
