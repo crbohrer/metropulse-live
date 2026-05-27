@@ -71,7 +71,6 @@ interface Props {
   onShowRoute: () => void;
 }
 
-console.log("Live ETAs from Server:", liveEtas);
 export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, isRouteViewActive, liveEtas, onClearSelection, onSelectVehicle, onShowRoute }: Props) {
   const displayedVehicles = isRouteViewActive && activeVehicle
     ? vehicles.filter((v) => v.id === activeVehicle.id)
