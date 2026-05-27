@@ -62,6 +62,13 @@ function Index() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: tripUpdates } = useQuery({
+    queryKey: ["trip-updates", active?.id],
+    queryFn: () => fetchTripUpdates({ data: { vehicleId: active!.id } }),
+    enabled: !!active && isRouteViewActive,
+    refetchInterval: 15000,
+  });
+
   const visibleVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
     return vehicles.filter(
