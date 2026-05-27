@@ -7,7 +7,7 @@ const TransitMap = lazy(() =>
 );
 import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
-import { getLiveVehicles } from "@/lib/transit.functions";
+import { getLiveVehicles, getTripUpdates } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
 
 export const Route = createFileRoute("/")({
