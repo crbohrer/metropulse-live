@@ -185,10 +185,11 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
 
         // 2. VEHICLE TYPE FILTER (Separate Light Rail vs Streetcar)
         const serviceType = f.properties.ServiceType as string | undefined;
-        if (serviceType) {
-          if (activeVehicle?.vehicle_type === "rail" && serviceType !== "Light Rail") return null;
-          if (activeVehicle?.vehicle_type === "streetcar" && serviceType !== "Streetcar") return null;
-        }
+        const stationRoutes = (f.properties.Routes as string) || ""; 
+        const isCorrectRoute = stationRoutes.includes(activeVehicle?.route_id || "");
+
+        if (serviceType === "Light Rail" && activeVehicle?.vehicle_type === "rail" && !isCorrectRoute) return null;
+        if (serviceType === "Streetcar" && activeVehicle?.vehicle_type === "streetcar" && !isCorrectRoute) return null;
         // 3. DIRECTION FILTER: 
         // Only show this stop if its direction matches the vehicle we clicked
         const stopDir = f.properties.Direction as string;
