@@ -21,7 +21,7 @@ const typeLabel: Record<VehicleType, string> = {
 
 const typeColor: Record<VehicleType, string> = {
   bus: "oklch(0.7 0.18 240)",
-  rail: "oklch(0.65 0.22 300)",
+  rail: "#7e22ce",
   streetcar: "oklch(0.75 0.18 55)",
 };
 
