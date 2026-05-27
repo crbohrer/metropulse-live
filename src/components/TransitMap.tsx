@@ -87,9 +87,41 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
 
   const activeColor = activeVehicle ? typeColor[activeVehicle.vehicle_type] : typeColor.bus;
 
-  // Force GeoJSON layer to remount when route changes
+  // Force layers to remount when route changes
   const shapeKey = activeVehicle?.route_id ?? "none";
-  console.log("Live ETAs from Server:", liveEtas);
+
+  // Extract all LineString rings from the route shape.
+  const routeLines = useMemo<LngLat[][]>(() => {
+    if (!routeShape) return [];
+    const lines: LngLat[][] = [];
+    for (const f of routeShape.features) {
+      const g = f.geometry;
+      if (!g) continue;
+      if (g.type === "LineString") {
+        lines.push(g.coordinates as LngLat[]);
+      } else if (g.type === "MultiLineString") {
+        for (const part of g.coordinates as unknown as LngLat[][]) {
+          lines.push(part);
+        }
+      }
+    }
+    return lines;
+  }, [routeShape]);
+
+  // Find nearest point on any line to the active vehicle, then split that line.
+  const ghosted = useMemo(() => {
+    if (!activeVehicle || routeLines.length === 0) return null;
+    const p: LngLat = [activeVehicle.longitude, activeVehicle.latitude];
+    const nearest = nearestOnLines(routeLines, p);
+    if (!nearest) return null;
+    const chosen = routeLines[nearest.lineIndex];
+    const { passed, upcoming } = splitLine(chosen, nearest.segIndex, nearest.point);
+    return { passed, upcoming, chosen, vehicleAlong: nearest.along, lineIndex: nearest.lineIndex };
+  }, [activeVehicle, routeLines]);
+
+  // Convert [lng,lat] → [lat,lng] for Leaflet Polyline.
+  const toLatLng = (coords: LngLat[]): [number, number][] =>
+    coords.map(([lng, lat]) => [lat, lng]);
 
   return (
     <MapContainer
@@ -105,12 +137,37 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
       <MapClickHandler onBackgroundClick={onClearSelection} />
       <FlyToActive vehicle={activeVehicle} />
 
-      {routeShape && routeShape.features.length > 0 && (
-        <GeoJSONLayer
-          key={`shape-${shapeKey}`}
-          data={routeShape as never}
-          style={{ color: activeColor, weight: 6, opacity: 0.85 }}
-        />
+      {ghosted ? (
+        <>
+          {/* Other lines (e.g. opposite direction loops) — render as upcoming */}
+          {routeLines.map((line, i) =>
+            i === ghosted.lineIndex ? null : (
+              <Polyline
+                key={`other-${shapeKey}-${i}`}
+                positions={toLatLng(line)}
+                pathOptions={{ color: activeColor, weight: 6, opacity: 0.85 }}
+              />
+            )
+          )}
+          <Polyline
+            key={`passed-${shapeKey}`}
+            positions={toLatLng(ghosted.passed)}
+            pathOptions={{ color: "#9ca3af", weight: 5, opacity: 0.3 }}
+          />
+          <Polyline
+            key={`upcoming-${shapeKey}`}
+            positions={toLatLng(ghosted.upcoming)}
+            pathOptions={{ color: activeColor, weight: 6, opacity: 0.95 }}
+          />
+        </>
+      ) : (
+        routeLines.map((line, i) => (
+          <Polyline
+            key={`shape-${shapeKey}-${i}`}
+            positions={toLatLng(line)}
+            pathOptions={{ color: activeColor, weight: 6, opacity: 0.85 }}
+          />
+        ))
       )}
 
       {routeStops?.features.map((f, i) => {
