@@ -183,15 +183,20 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
         // 1. SAFETY CHECK
         if (f.geometry.type !== "Point") return null;
 
-        // 2. VEHICLE TYPE FILTER (Separate Light Rail vs Streetcar)
         // 2. VEHICLE TYPE & ROUTE FILTER
         const serviceType = (f.properties.ServiceType as string || "").toLowerCase();
         const stationRoutes = (f.properties.Routes as string) || ""; 
         const isCorrectRoute = stationRoutes.includes(activeVehicle?.route_id || "");
 
-        // Only filter if the vehicle is actually a rail/streetcar type
-        if (activeVehicle?.vehicle_type === "rail" && !serviceType.includes("light rail")) return null;
-        if (activeVehicle?.vehicle_type === "streetcar" && !serviceType.includes("streetcar")) return null;
+        // FIX: Explicitly match vehicle_type to the correct ServiceType string
+        if (activeVehicle?.vehicle_type === "rail") {
+          // If it's a light rail vehicle, we must only show "light rail" stations
+          if (!serviceType.includes("light rail")) return null;
+        } else if (activeVehicle?.vehicle_type === "streetcar") {
+          // If it's a streetcar vehicle, we must only show "streetcar" stations
+          if (!serviceType.includes("streetcar")) return null;
+        }
+        
         // Ensure the station belongs to the active route
         if (!isCorrectRoute) return null;
         // 3. DIRECTION FILTER: 
