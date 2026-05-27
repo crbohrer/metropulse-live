@@ -180,10 +180,16 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
       )}
 
       {routeStops?.features.map((f, i) => {
+        // 1. SAFETY CHECK
         if (f.geometry.type !== "Point") return null;
-        console.log("Rail Stop Props:", f.properties);
 
-        // 1. DIRECTION FILTER: 
+        // 2. VEHICLE TYPE FILTER (Separate Light Rail vs Streetcar)
+        const serviceType = f.properties.ServiceType as string | undefined;
+        if (serviceType) {
+          if (activeVehicle?.vehicle_type === "rail" && serviceType !== "Light Rail") return null;
+          if (activeVehicle?.vehicle_type === "streetcar" && serviceType !== "Streetcar") return null;
+        }
+        // 3. DIRECTION FILTER: 
         // Only show this stop if its direction matches the vehicle we clicked
         const stopDir = f.properties.Direction as string;
         if (activeVehicle?.direction && stopDir && stopDir.trim() !== "") {
