@@ -23,6 +23,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   const fetchVehicles = useServerFn(getLiveVehicles);
   const fetchRouteGeometry = useServerFn(getRouteGeometry);
+  const fetchTripUpdates = useServerFn(getTripUpdates);
   const { data } = useQuery({
     queryKey: ["live-vehicles"],
     queryFn: () => fetchVehicles(),
