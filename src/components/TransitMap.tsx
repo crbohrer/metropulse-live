@@ -115,7 +115,7 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
     const nearest = nearestOnLines(routeLines, p);
     if (!nearest) return null;
     const chosen = routeLines[nearest.lineIndex];
-    const { passed, upcoming } = splitLine(chosen, nearest.segIndex, nearest.point);
+    const { passed: upcoming, upcoming: passed } = splitLine(chosen, nearest.segIndex, nearest.point);
     return { passed, upcoming, chosen, vehicleAlong: nearest.along, lineIndex: nearest.lineIndex };
   }, [activeVehicle, routeLines]);
 
@@ -152,12 +152,12 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
           <Polyline
             key={`passed-${shapeKey}`}
             positions={toLatLng(ghosted.passed)}
-            pathOptions={{ color: "#9ca3af", weight: 5, opacity: 0.3 }}
+            pathOptions={{ color: "#6b7280", weight: 4, opacity: 0.4 }}
           />
           <Polyline
             key={`upcoming-${shapeKey}`}
             positions={toLatLng(ghosted.upcoming)}
-            pathOptions={{ color: activeColor, weight: 6, opacity: 0.95 }}
+            pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
           />
         </>
       ) : (
