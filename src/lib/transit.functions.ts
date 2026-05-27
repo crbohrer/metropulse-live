@@ -95,7 +95,7 @@ export const getTripUpdates = createServerFn({ method: "GET" })
       for (const e of feed.entity ?? []) {
         const tu = e.tripUpdate;
         if (!tu) continue;
-        if (tu.vehicle?.id !== data.vehicleId) continue;
+        if (tu.trip?.tripId !== data.vehicleId && tu.vehicle?.id !== data.vehicleId) continue;
         for (const stu of tu.stopTimeUpdate ?? []) {
           const stopId = stu.stopId;
           const t = stu.arrival?.time ?? stu.departure?.time;
@@ -178,7 +178,7 @@ export const getLiveVehicles = createServerFn({ method: "GET" }).handler(
         const type = classify(v.trip?.routeId);
         const delay = tripId ? delaysByTrip.get(tripId) ?? 0 : 0;
         vehicles.push({
-          id: e.id || v.vehicle?.id || `${routeId}-${vehicles.length}`,
+          id: v.trip?.tripId || v.vehicle?.id || e.id || `${routeId}-${vehicles.length}`,
           latitude: pos.latitude,
           longitude: pos.longitude,
           route_id: v.vehicle?.label ? `${routeId} · ${v.vehicle.label}` : routeId,
