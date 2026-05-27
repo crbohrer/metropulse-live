@@ -65,12 +65,13 @@ interface Props {
   routeShape: RouteGeoJSON | null;
   routeStops: RouteGeoJSON | null;
   isRouteViewActive: boolean;
+  liveEtas: Record<string, number> | null;
   onClearSelection: () => void;
   onSelectVehicle: (v: Vehicle) => void;
   onShowRoute: () => void;
 }
 
-export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, isRouteViewActive, onClearSelection, onSelectVehicle, onShowRoute }: Props) {
+export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, isRouteViewActive, liveEtas, onClearSelection, onSelectVehicle, onShowRoute }: Props) {
   const displayedVehicles = isRouteViewActive && activeVehicle
     ? vehicles.filter((v) => v.id === activeVehicle.id)
     : vehicles;
