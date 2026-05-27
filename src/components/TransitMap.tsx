@@ -71,6 +71,7 @@ interface Props {
   onShowRoute: () => void;
 }
 
+console.log("Live ETAs from Server:", liveEtas);
 export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, isRouteViewActive, liveEtas, onClearSelection, onSelectVehicle, onShowRoute }: Props) {
   const displayedVehicles = isRouteViewActive && activeVehicle
     ? vehicles.filter((v) => v.id === activeVehicle.id)
@@ -136,8 +137,9 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
           (f.properties.STOPNAME as string) ||
           "Bus stop";
 
-        const stopId = f.properties.stop_id as string;
-        const etaTs = stopId && liveEtas ? liveEtas[stopId] : undefined;
+        const internalStopId = String(f.properties.stop_id);
+        const publicStopCode = String(f.properties.stop_code);
+        const etaTs = liveEtas?.[internalStopId] || liveEtas?.[publicStopCode];
         const etaLabel = typeof etaTs === "number"
           ? new Date(etaTs * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
           : null;
