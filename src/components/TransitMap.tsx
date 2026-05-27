@@ -198,32 +198,37 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
         const internalStopId = String(f.properties.stop_id);
         const publicStopCode = String(f.properties.stop_code);
         const etaTs = liveEtas?.[internalStopId] || liveEtas?.[publicStopCode];
-        const etaLabel = typeof etaTs === "number"
-          ? new Date(etaTs * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-          : null;
+
+        // Mute stops that the vehicle has already passed on the chosen line.
+        let isPassed = false;
+        if (ghosted) {
+          const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
+          isPassed = stopAlong < ghosted.vehicleAlong;
+        }
 
         return (
           <CircleMarker
             key={`stop-${shapeKey}-${i}`}
             center={[lat, lng]}
-            radius={4}
+            radius={isPassed ? 3 : 4}
             pathOptions={{
-              color: activeColor,
+              color: isPassed ? "#9ca3af" : activeColor,
               fillColor: "#0b0b15",
-              fillOpacity: 1,
+              fillOpacity: isPassed ? 0.35 : 1,
               weight: 2,
+              opacity: isPassed ? 0.4 : 1,
             }}
           >
             <Popup>
               <div className="space-y-1">
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Stop</div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {isPassed ? "Passed stop" : "Stop"}
+                </div>
                 <div className="text-sm font-semibold">{name}</div>
-                <div className="text-xs opacity-70">
-                  {etaTs ? (
-                    `Arrival: ${new Date(etaTs * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                  ) : (
-                    "No live ETA available"
-                  )}
+                <div className="text-xs opacity-70" suppressHydrationWarning>
+                  {etaTs
+                    ? `Arrival: ${new Date(etaTs * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                    : "No live ETA available"}
                 </div>
               </div>
             </Popup>
