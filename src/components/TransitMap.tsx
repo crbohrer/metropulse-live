@@ -1,8 +1,9 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON as GeoJSONLayer, CircleMarker, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, CircleMarker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, useMemo } from "react";
 import type { Vehicle, VehicleType } from "@/lib/mock-transit";
 import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
+import { nearestOnLines, splitLine, alongDistance, type LngLat } from "@/lib/geo-utils";
 
 const TEMPE_CENTER: [number, number] = [33.4255, -111.94];
 
@@ -86,9 +87,41 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
 
   const activeColor = activeVehicle ? typeColor[activeVehicle.vehicle_type] : typeColor.bus;
 
-  // Force GeoJSON layer to remount when route changes
+  // Force layers to remount when route changes
   const shapeKey = activeVehicle?.route_id ?? "none";
-  console.log("Live ETAs from Server:", liveEtas);
+
+  // Extract all LineString rings from the route shape.
+  const routeLines = useMemo<LngLat[][]>(() => {
+    if (!routeShape) return [];
+    const lines: LngLat[][] = [];
+    for (const f of routeShape.features) {
+      const g = f.geometry;
+      if (!g) continue;
+      if (g.type === "LineString") {
+        lines.push(g.coordinates as LngLat[]);
+      } else if (g.type === "MultiLineString") {
+        for (const part of g.coordinates as unknown as LngLat[][]) {
+          lines.push(part);
+        }
+      }
+    }
+    return lines;
+  }, [routeShape]);
+
+  // Find nearest point on any line to the active vehicle, then split that line.
+  const ghosted = useMemo(() => {
+    if (!activeVehicle || routeLines.length === 0) return null;
+    const p: LngLat = [activeVehicle.longitude, activeVehicle.latitude];
+    const nearest = nearestOnLines(routeLines, p);
+    if (!nearest) return null;
+    const chosen = routeLines[nearest.lineIndex];
+    const { passed, upcoming } = splitLine(chosen, nearest.segIndex, nearest.point);
+    return { passed, upcoming, chosen, vehicleAlong: nearest.along, lineIndex: nearest.lineIndex };
+  }, [activeVehicle, routeLines]);
+
+  // Convert [lng,lat] → [lat,lng] for Leaflet Polyline.
+  const toLatLng = (coords: LngLat[]): [number, number][] =>
+    coords.map(([lng, lat]) => [lat, lng]);
 
   return (
     <MapContainer
@@ -104,12 +137,37 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
       <MapClickHandler onBackgroundClick={onClearSelection} />
       <FlyToActive vehicle={activeVehicle} />
 
-      {routeShape && routeShape.features.length > 0 && (
-        <GeoJSONLayer
-          key={`shape-${shapeKey}`}
-          data={routeShape as never}
-          style={{ color: activeColor, weight: 6, opacity: 0.85 }}
-        />
+      {ghosted ? (
+        <>
+          {/* Other lines (e.g. opposite direction loops) — render as upcoming */}
+          {routeLines.map((line, i) =>
+            i === ghosted.lineIndex ? null : (
+              <Polyline
+                key={`other-${shapeKey}-${i}`}
+                positions={toLatLng(line)}
+                pathOptions={{ color: activeColor, weight: 6, opacity: 0.85 }}
+              />
+            )
+          )}
+          <Polyline
+            key={`passed-${shapeKey}`}
+            positions={toLatLng(ghosted.passed)}
+            pathOptions={{ color: "#9ca3af", weight: 5, opacity: 0.3 }}
+          />
+          <Polyline
+            key={`upcoming-${shapeKey}`}
+            positions={toLatLng(ghosted.upcoming)}
+            pathOptions={{ color: activeColor, weight: 6, opacity: 0.95 }}
+          />
+        </>
+      ) : (
+        routeLines.map((line, i) => (
+          <Polyline
+            key={`shape-${shapeKey}-${i}`}
+            positions={toLatLng(line)}
+            pathOptions={{ color: activeColor, weight: 6, opacity: 0.85 }}
+          />
+        ))
       )}
 
       {routeStops?.features.map((f, i) => {
@@ -140,32 +198,37 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
         const internalStopId = String(f.properties.stop_id);
         const publicStopCode = String(f.properties.stop_code);
         const etaTs = liveEtas?.[internalStopId] || liveEtas?.[publicStopCode];
-        const etaLabel = typeof etaTs === "number"
-          ? new Date(etaTs * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-          : null;
+
+        // Mute stops that the vehicle has already passed on the chosen line.
+        let isPassed = false;
+        if (ghosted) {
+          const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
+          isPassed = stopAlong < ghosted.vehicleAlong;
+        }
 
         return (
           <CircleMarker
             key={`stop-${shapeKey}-${i}`}
             center={[lat, lng]}
-            radius={4}
+            radius={isPassed ? 3 : 4}
             pathOptions={{
-              color: activeColor,
+              color: isPassed ? "#9ca3af" : activeColor,
               fillColor: "#0b0b15",
-              fillOpacity: 1,
+              fillOpacity: isPassed ? 0.35 : 1,
               weight: 2,
+              opacity: isPassed ? 0.4 : 1,
             }}
           >
             <Popup>
               <div className="space-y-1">
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Stop</div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {isPassed ? "Passed stop" : "Stop"}
+                </div>
                 <div className="text-sm font-semibold">{name}</div>
-                <div className="text-xs opacity-70">
-                  {etaTs ? (
-                    `Arrival: ${new Date(etaTs * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                  ) : (
-                    "No live ETA available"
-                  )}
+                <div className="text-xs opacity-70" suppressHydrationWarning>
+                  {etaTs
+                    ? `Arrival: ${new Date(etaTs * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                    : "No live ETA available"}
                 </div>
               </div>
             </Popup>
