@@ -99,6 +99,7 @@ export const getTripUpdates = createServerFn({ method: "GET" })
         if (!tu) continue;
         if (tu.trip?.tripId === data.vehicleId || tu.vehicle?.id === data.vehicleId) {
            console.log("DEBUG: FOUND MATCH for ID:", data.vehicleId);
+           console.log("DEBUG: Stop updates found:", tu.stopTimeUpdate);
         }
         if (tu.trip?.tripId !== data.vehicleId && tu.vehicle?.id !== data.vehicleId) continue;
         for (const stu of tu.stopTimeUpdate ?? []) {
