@@ -112,6 +112,7 @@ export const getTripUpdates = createServerFn({ method: "GET" })
             etas[stopId] = t;
           }
         }
+      }
       console.log("DEBUG: Final ETAs object:", etas);
       return { etas };
     } catch {
