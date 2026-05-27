@@ -39,9 +39,16 @@ export const getRouteGeometry = createServerFn({ method: "GET" })
       `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroBusRoutes/FeatureServer/0/query` +
       `?where=${encodeURIComponent(`route_id='${routeId}'`)}&outFields=*&f=geojson`;
 
-    const stopsUrl =
+    let stopsUrl = 
       `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/BusStopsWAmenities/FeatureServer/0/query` +
       `?where=${encodeURIComponent(`Routes LIKE '%${routeId}%'`)}&outFields=*&f=geojson`;
+
+    // Override with the hidden Rail Stations layer if it's a Light Rail (A/B) or Streetcar (S)
+    const isRail = ["A", "B", "S"].includes(routeId);
+
+    if (isRail) {
+      stopsUrl = `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroRailStations/FeatureServer/0/query?where=1=1&outFields=*&f=geojson`;
+    }
 
     const [shape, stops] = await Promise.all([
       fetchGeoJSON(shapeUrl),
