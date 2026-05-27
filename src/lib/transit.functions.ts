@@ -81,6 +81,33 @@ function directionLabel(d: number | undefined, bearing: number | undefined): str
 // Bounding box around Tempe + surrounding service area (keeps map relevant).
 const BBOX = { minLat: 33.2, maxLat: 33.7, minLng: -112.4, maxLng: -111.7 };
 
+export const getTripUpdates = createServerFn({ method: "GET" })
+  .inputValidator((data: { vehicleId: string }) => data)
+  .handler(async ({ data }): Promise<{ etas: Record<string, number> }> => {
+    const key = process.env.VALLEY_METRO_API_KEY;
+    if (!key || !data.vehicleId) return { etas: {} };
+    const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/realtime/valleymetro?apiKey=${key}&asJson=true`;
+    try {
+      const res = await fetch(url, { headers: { accept: "application/json" } });
+      if (!res.ok) return { etas: {} };
+      const feed = (await res.json()) as { entity?: TripUpdateEntity[] };
+      const etas: Record<string, number> = {};
+      for (const e of feed.entity ?? []) {
+        const tu = e.tripUpdate;
+        if (!tu) continue;
+        if (tu.vehicle?.id !== data.vehicleId) continue;
+        for (const stu of tu.stopTimeUpdate ?? []) {
+          const stopId = stu.stopId;
+          const t = stu.arrival?.time ?? stu.departure?.time;
+          if (stopId && typeof t === "number") etas[stopId] = t;
+        }
+      }
+      return { etas };
+    } catch {
+      return { etas: {} };
+    }
+  });
+
 interface TripUpdateEntity {
   id: string;
   tripUpdate?: {
