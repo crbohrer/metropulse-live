@@ -104,12 +104,11 @@ export const getTripUpdates = createServerFn({ method: "GET" })
         if (tu.trip?.tripId !== data.vehicleId && tu.vehicle?.id !== data.vehicleId) continue;
         for (const stu of tu.stopTimeUpdate ?? []) {
           const stopId = stu.stopId;
-          
-          // Fix: Extract the time from the nested arrival object
-          const t = stu.arrival?.time; 
-          
-          if (stopId && typeof t === "number") {
-            etas[stopId] = t;
+          // Feed sometimes returns time as a string — coerce to number
+          const rawT = stu.arrival?.time ?? stu.departure?.time;
+          const t = typeof rawT === "string" ? Number(rawT) : rawT;
+          if (stopId && typeof t === "number" && Number.isFinite(t)) {
+            etas[String(stopId)] = t;
           }
         }
       }
