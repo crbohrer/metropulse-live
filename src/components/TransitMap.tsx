@@ -1,8 +1,9 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON as GeoJSONLayer, CircleMarker, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, CircleMarker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, useMemo } from "react";
 import type { Vehicle, VehicleType } from "@/lib/mock-transit";
 import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
+import { nearestOnLines, splitLine, alongDistance, type LngLat } from "@/lib/geo-utils";
 
 const TEMPE_CENTER: [number, number] = [33.4255, -111.94];
 
