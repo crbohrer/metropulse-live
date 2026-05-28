@@ -53,18 +53,26 @@ export function TransitSidebar({
   search,
   onSearch,
   alerts,
+export function TransitSidebar({
+  vehicles,
+  filters,
+  onToggle,
+  search,
+  onSearch,
+  alerts,
   onSelectVehicle,
   last,
   activeVehicle,
   onClearSelection,
+  isRouteViewActive,
+  routeShape,
+  routeStops,
+  liveEtas,
 }: Props) {
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
+  const [itineraryOpen, setItineraryOpen] = useState(true);
 
-  useEffect(() => {
-    getLiveAlerts().then(data => setLiveAlerts(data));
-  }, []);
-  
   const filtered = vehicles.filter(
     (v) =>
       filters[v.vehicle_type] &&
