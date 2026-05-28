@@ -79,6 +79,34 @@ export function TransitSidebar({
     streetcar: vehicles.filter((v) => v.vehicle_type === "streetcar").length,
   };
 
+  const upcomingStops = useMemo(() => {
+    if (!isRouteViewActive || !activeVehicle) return [];
+    const lines = getActiveRouteLines(routeShape, activeVehicle.direction);
+    const ghosted = buildGhostedRoute(lines, activeVehicle);
+    const stops = filterRouteStops(routeStops, activeVehicle);
+    const items = stops
+      .map((f) => {
+        const coords = (f.geometry?.coordinates as number[]) ?? [];
+        const [lng, lat] = coords;
+        if (typeof lat !== "number" || typeof lng !== "number") return null;
+        const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
+        if (ghosted && along < ghosted.vehicleAlong) return null;
+        const name =
+          (f.properties.stop_name as string) ||
+          (f.properties.StationName as string) ||
+          (f.properties.Stop_Name as string) ||
+          (f.properties.StopName as string) ||
+          "Transit Stop";
+        const sid = String(f.properties.stop_id ?? "");
+        const sco = String(f.properties.stop_code ?? "");
+        const ts = liveEtas?.[sid] ?? liveEtas?.[sco];
+        return { name, sid, sco, along, ts: typeof ts === "number" ? ts : null };
+      })
+      .filter((x): x is { name: string; sid: string; sco: string; along: number; ts: number | null } => !!x)
+      .sort((a, b) => a.along - b.along);
+    return items;
+  }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas]);
+
   return (
     <aside className="glass absolute left-4 top-4 bottom-4 z-10 flex w-[360px] flex-col rounded-2xl p-5 shadow-2xl">
       {/* Header */}
