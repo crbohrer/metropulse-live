@@ -1,7 +1,15 @@
-import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X } from "lucide-react";
-import { useState, useEffect } from 'react';
+import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin } from "lucide-react";
+import { useState, useEffect, useMemo } from 'react';
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
+import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
 import { getLiveAlerts } from "@/lib/transit.functions";
+import {
+  alongDistance,
+  buildGhostedRoute,
+  filterRouteStops,
+  getActiveRouteLines,
+} from "@/lib/geo-utils";
+
 interface Props {
   vehicles: Vehicle[];
   filters: Record<VehicleType, boolean>;
@@ -13,7 +21,12 @@ interface Props {
   last: Date;
   activeVehicle: Vehicle | null;
   onClearSelection: () => void;
+  isRouteViewActive: boolean;
+  routeShape: RouteGeoJSON | null;
+  routeStops: RouteGeoJSON | null;
+  liveEtas: Record<string, number> | null;
 }
+
 
 const typeMeta = {
   bus: { label: "Buses", icon: Bus, color: "var(--bus)" },
