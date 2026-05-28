@@ -1,7 +1,15 @@
-import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X } from "lucide-react";
-import { useState, useEffect } from 'react';
+import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin } from "lucide-react";
+import { useState, useEffect, useMemo } from 'react';
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
+import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
 import { getLiveAlerts } from "@/lib/transit.functions";
+import {
+  alongDistance,
+  buildGhostedRoute,
+  filterRouteStops,
+  getActiveRouteLines,
+} from "@/lib/geo-utils";
+
 interface Props {
   vehicles: Vehicle[];
   filters: Record<VehicleType, boolean>;
@@ -13,7 +21,12 @@ interface Props {
   last: Date;
   activeVehicle: Vehicle | null;
   onClearSelection: () => void;
+  isRouteViewActive: boolean;
+  routeShape: RouteGeoJSON | null;
+  routeStops: RouteGeoJSON | null;
+  liveEtas: Record<string, number> | null;
 }
+
 
 const typeMeta = {
   bus: { label: "Buses", icon: Bus, color: "var(--bus)" },
@@ -44,14 +57,15 @@ export function TransitSidebar({
   last,
   activeVehicle,
   onClearSelection,
+  isRouteViewActive,
+  routeShape,
+  routeStops,
+  liveEtas,
 }: Props) {
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
+  const [itineraryOpen, setItineraryOpen] = useState(true);
 
-  useEffect(() => {
-    getLiveAlerts().then(data => setLiveAlerts(data));
-  }, []);
-  
   const filtered = vehicles.filter(
     (v) =>
       filters[v.vehicle_type] &&
@@ -64,6 +78,34 @@ export function TransitSidebar({
     rail: vehicles.filter((v) => v.vehicle_type === "rail").length,
     streetcar: vehicles.filter((v) => v.vehicle_type === "streetcar").length,
   };
+
+  const upcomingStops = useMemo(() => {
+    if (!isRouteViewActive || !activeVehicle) return [];
+    const lines = getActiveRouteLines(routeShape, activeVehicle.direction);
+    const ghosted = buildGhostedRoute(lines, activeVehicle);
+    const stops = filterRouteStops(routeStops, activeVehicle);
+    const items = stops
+      .map((f) => {
+        const coords = (f.geometry?.coordinates as number[]) ?? [];
+        const [lng, lat] = coords;
+        if (typeof lat !== "number" || typeof lng !== "number") return null;
+        const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
+        if (ghosted && along < ghosted.vehicleAlong) return null;
+        const name =
+          (f.properties.stop_name as string) ||
+          (f.properties.StationName as string) ||
+          (f.properties.Stop_Name as string) ||
+          (f.properties.StopName as string) ||
+          "Transit Stop";
+        const sid = String(f.properties.stop_id ?? "");
+        const sco = String(f.properties.stop_code ?? "");
+        const ts = liveEtas?.[sid] ?? liveEtas?.[sco];
+        return { name, sid, sco, along, ts: typeof ts === "number" ? ts : null };
+      })
+      .filter((x): x is { name: string; sid: string; sco: string; along: number; ts: number | null } => !!x)
+      .sort((a, b) => a.along - b.along);
+    return items;
+  }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas]);
 
   return (
     <aside className="glass absolute left-4 top-4 bottom-4 z-10 flex w-[360px] flex-col rounded-2xl p-5 shadow-2xl">
@@ -90,7 +132,7 @@ export function TransitSidebar({
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search route (e.g. 72, Streetcar)"
+          placeholder="Search route (e.g. 72, 0)"
           className="w-full rounded-xl border border-border bg-input/40 py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-foreground/70 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
         />
       </div>
@@ -111,6 +153,45 @@ export function TransitSidebar({
         </div>
       )}
 
+      {isRouteViewActive && activeVehicle && (
+        <div className="mb-3 rounded-xl border border-white/10 bg-white/[0.03]">
+          <button
+            onClick={() => setItineraryOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-3 py-2 text-left"
+          >
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Upcoming Stops ({upcomingStops.length})
+            </span>
+            <span className="text-xs text-muted-foreground">{itineraryOpen ? "−" : "+"}</span>
+          </button>
+          {itineraryOpen && (
+            <ul className="max-h-56 overflow-y-auto border-t border-white/5 px-2 py-1.5">
+              {upcomingStops.length === 0 && (
+                <li className="px-2 py-3 text-center text-xs text-muted-foreground">
+                  No upcoming stops.
+                </li>
+              )}
+              {upcomingStops.map((s, idx) => (
+                <li
+                  key={`${s.sid}-${idx}`}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-white/[0.04]"
+                >
+                  <MapPin className="h-3 w-3 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                  <span
+                    className={`shrink-0 font-mono text-[11px] ${s.ts ? "text-emerald-300" : "text-muted-foreground"}`}
+                    suppressHydrationWarning
+                  >
+                    {s.ts
+                      ? new Date(s.ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                      : "No live ETA"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
 
       {/* Filters */}

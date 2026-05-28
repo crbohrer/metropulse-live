@@ -2,8 +2,14 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, CircleMarker,
 import L from "leaflet";
 import { useEffect, useMemo } from "react";
 import type { Vehicle, VehicleType } from "@/lib/mock-transit";
-import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
-import { nearestOnLines, splitLine, alongDistance, type LngLat } from "@/lib/geo-utils";
+import type { GeoJSON as RouteGeoJSON, GeoJSONFeature } from "@/lib/route-shapes.functions";
+import {
+  alongDistance,
+  buildGhostedRoute,
+  filterRouteStops,
+  getActiveRouteLines,
+  type LngLat,
+} from "@/lib/geo-utils";
 
 const TEMPE_CENTER: [number, number] = [33.4255, -111.94];
 
@@ -72,10 +78,22 @@ interface Props {
   onShowRoute: () => void;
 }
 
-export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, isRouteViewActive, liveEtas, onClearSelection, onSelectVehicle, onShowRoute }: Props) {
+export function TransitMap({
+  vehicles,
+  activeVehicle,
+  routeShape,
+  routeStops,
+  isRouteViewActive,
+  liveEtas,
+  onClearSelection,
+  onSelectVehicle,
+  onShowRoute,
+}: Props) {
+  // Hide all other vehicles when in route view.
   const displayedVehicles = isRouteViewActive && activeVehicle
     ? vehicles.filter((v) => v.id === activeVehicle.id)
     : vehicles;
+
   const icons = useMemo(
     () => ({
       bus: buildIcon("bus"),
@@ -86,42 +104,25 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
   );
 
   const activeColor = activeVehicle ? typeColor[activeVehicle.vehicle_type] : typeColor.bus;
-
-  // Force layers to remount when route changes
   const shapeKey = activeVehicle?.route_id ?? "none";
 
-  // Extract all LineString rings from the route shape.
+  // Direction-filtered lines for the active vehicle.
   const routeLines = useMemo<LngLat[][]>(() => {
-  if (!routeShape) return [];
-  const lines: LngLat[][] = [];
+    if (!isRouteViewActive || !activeVehicle) return [];
+    return getActiveRouteLines(routeShape, activeVehicle.direction);
+  }, [isRouteViewActive, activeVehicle, routeShape]);
 
-  for (const f of routeShape.features) {
-    const g = f.geometry;
-    if (!g) continue;
+  const ghosted = useMemo(
+    () => (isRouteViewActive ? buildGhostedRoute(routeLines, activeVehicle) : null),
+    [isRouteViewActive, routeLines, activeVehicle]
+  );
 
-    if (g.type === "LineString") {
-      lines.push(g.coordinates as LngLat[]);
-    } else if (g.type === "MultiLineString") {
-      for (const part of g.coordinates as unknown as LngLat[][]) {
-        lines.push(part);
-      }
-    }
-  }
-  return lines;
-}, [routeShape]);
+  // Strictly filtered stops for the active route/direction/service.
+  const stops = useMemo<GeoJSONFeature[]>(() => {
+    if (!isRouteViewActive) return [];
+    return filterRouteStops(routeStops, activeVehicle) as GeoJSONFeature[];
+  }, [isRouteViewActive, routeStops, activeVehicle]);
 
-  // Find nearest point on any line to the active vehicle, then split that line.
-  const ghosted = useMemo(() => {
-    if (!activeVehicle || routeLines.length === 0) return null;
-    const p: LngLat = [activeVehicle.longitude, activeVehicle.latitude];
-    const nearest = nearestOnLines(routeLines, p);
-    if (!nearest) return null;
-    const chosen = routeLines[nearest.lineIndex];
-    const { passed: upcoming, upcoming: passed } = splitLine(chosen, nearest.segIndex, nearest.point);
-    return { passed, upcoming, chosen, vehicleAlong: nearest.along, lineIndex: nearest.lineIndex };
-  }, [activeVehicle, routeLines]);
-
-  // Convert [lng,lat] → [lat,lng] for Leaflet Polyline.
   const toLatLng = (coords: LngLat[]): [number, number][] =>
     coords.map(([lng, lat]) => [lat, lng]);
 
@@ -141,34 +142,24 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
 
       {ghosted ? (
         <>
-          {/* Other lines (e.g. opposite direction loops) — render as upcoming */}
           {routeLines.map((line, i) =>
             i === ghosted.lineIndex ? null : (
               <Polyline
                 key={`other-${shapeKey}-${i}`}
                 positions={toLatLng(line)}
-                pathOptions={{ color: activeColor, weight: 6, opacity: 0.85 }}
+                pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
               />
             )
           )}
           <Polyline
             key={`passed-${shapeKey}`}
             positions={toLatLng(ghosted.passed)}
-            pathOptions={{ 
-              color: "#ef4444", // Tailwind 'red-500'
-              weight: 4, 
-              opacity: 0.3,     // Very transparent
-              dashArray: "4, 8" // Added a dash pattern to make it look "faded"
-            }}
+            pathOptions={{ color: activeColor, weight: 4, opacity: 0.3 }}
           />
           <Polyline
             key={`upcoming-${shapeKey}`}
             positions={toLatLng(ghosted.upcoming)}
-            pathOptions={{ 
-              color: activeColor, 
-              weight: 7,        // Keep it bold
-              opacity: 1.0 
-            }}
+            pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
           />
         </>
       ) : (
@@ -181,30 +172,11 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
         ))
       )}
 
-      {routeStops?.features.map((f, i) => {
-        // 1. SAFETY CHECK
-        if (f.geometry.type !== "Point") return null;
-
-        // 2. VEHICLE TYPE & ROUTE FILTER
-
-        // 3. DIRECTION FILTER: 
-        // Only show this stop if its direction matches the vehicle we clicked
-        // 3. DIRECTION FILTER (Fuzzy match)
-        const stopDir = (f.properties.Direction as string || "").toLowerCase();
-        const vehicleDir = (activeVehicle?.direction as string || "").toLowerCase();
-
-        if (activeVehicle?.direction && stopDir !== "") {
-          if (!stopDir.includes(vehicleDir.split(" ")[0]) && !vehicleDir.includes(stopDir.split(" ")[0])) {
-            return null;
-          }
-        }
-
+      {stops.map((f, i) => {
         const coords = f.geometry.coordinates as number[];
         const [lng, lat] = coords;
         if (typeof lat !== "number" || typeof lng !== "number") return null;
-        
-        // 2. STOP NAME FIX: 
-        // Add "stop_name" (lowercase) to the front of the line
+
         const name =
           (f.properties.stop_name as string) ||
           (f.properties.StationName as string) ||
@@ -214,11 +186,6 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
           (f.properties.STOPNAME as string) ||
           "Transit Stop";
 
-        const internalStopId = String(f.properties.stop_id);
-        const publicStopCode = String(f.properties.stop_code);
-        const etaTs = liveEtas?.[internalStopId] || liveEtas?.[publicStopCode];
-
-        // Mute stops that the vehicle has already passed on the chosen line.
         let isPassed = false;
         if (ghosted) {
           const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
@@ -229,26 +196,22 @@ export function TransitMap({ vehicles, activeVehicle, routeShape, routeStops, is
           <CircleMarker
             key={`stop-${shapeKey}-${i}`}
             center={[lat, lng]}
-            radius={isPassed ? 3 : 4}
+            radius={isPassed ? 4 : 6}
             pathOptions={{
-              color: isPassed ? "#9ca3af" : activeColor,
+              color: isPassed ? "#6b7280" : activeColor,
               fillColor: "#0b0b15",
-              fillOpacity: isPassed ? 0.35 : 1,
-              weight: 2,
-              opacity: isPassed ? 0.4 : 1,
+              fillOpacity: isPassed ? 0.4 : 1,
+              weight: 2.5,
+              opacity: isPassed ? 0.45 : 1,
             }}
           >
             <Popup>
               <div className="space-y-1">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {isPassed ? "Passed stop" : "Stop"}
+                  {isPassed ? "Passed stop" : "Upcoming stop"}
                 </div>
                 <div className="text-sm font-semibold">{name}</div>
-                <div className="text-xs opacity-70" suppressHydrationWarning>
-                  {etaTs
-                    ? `Arrival: ${new Date(etaTs * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                    : "No live ETA available"}
-                </div>
+                <div className="text-xs opacity-70">Live ETA: Coming Soon</div>
               </div>
             </Popup>
           </CircleMarker>
