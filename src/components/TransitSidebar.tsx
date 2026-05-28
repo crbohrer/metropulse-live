@@ -53,13 +53,6 @@ export function TransitSidebar({
   search,
   onSearch,
   alerts,
-export function TransitSidebar({
-  vehicles,
-  filters,
-  onToggle,
-  search,
-  onSearch,
-  alerts,
   onSelectVehicle,
   last,
   activeVehicle,
