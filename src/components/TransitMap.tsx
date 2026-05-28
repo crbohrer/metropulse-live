@@ -186,6 +186,14 @@ export function TransitMap({
           (f.properties.STOPNAME as string) ||
           "Transit Stop";
 
+        const sid = String(f.properties.stop_id ?? "");
+        const sco = String(f.properties.stop_code ?? "");
+        const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
+        const etaLabel =
+          typeof ts === "number"
+            ? new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+            : "No live ETA";
+
         let isPassed = false;
         if (ghosted) {
           const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
@@ -211,7 +219,12 @@ export function TransitMap({
                   {isPassed ? "Passed stop" : "Upcoming stop"}
                 </div>
                 <div className="text-sm font-semibold">{name}</div>
-                <div className="text-xs opacity-70">Live ETA: Coming Soon</div>
+                <div
+                  className={`text-xs ${typeof ts === "number" ? "text-emerald-500 font-medium" : "opacity-70"}`}
+                  suppressHydrationWarning
+                >
+                  Live ETA: {etaLabel}
+                </div>
               </div>
             </Popup>
           </CircleMarker>
