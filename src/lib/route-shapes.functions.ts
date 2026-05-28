@@ -39,11 +39,19 @@ export const getRouteGeometry = createServerFn({ method: "GET" })
     // the shape DB (rail is stored under route_id='0'). Fetch the whole layer
     // for rail/streetcar and let the client filter by Direction + ServiceType.
     const isRail = ["A", "B", "S"].includes(routeId);
+        
+        // TRANSLATE THE ID: Map real-time IDs to the official ArcGIS shape IDs
+        let queryId = routeId;
+        if (routeId === "A" || routeId === "B") {
+            queryId = "0"; // Force Light Rail to fetch route "0"
+        } 
+        // (Streetcar will stay "S". If its shape is missing later, we can update this.)
 
-    const shapeWhere = isRail ? "1=1" : `route_id='${routeId}'`;
-    const shapeUrl =
-      `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroBusRoutes/FeatureServer/0/query` +
-      `?where=${encodeURIComponent(shapeWhere)}&outFields=*&f=geojson`;
+        // NO MORE 1=1! Fetch only the specific translated route shape
+        const shapeWhere = `route_id='${queryId}'`;
+        
+        const shapeUrl = `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroBusRoutes/FeatureServer/0/query` +
+          `?where=${encodeURIComponent(shapeWhere)}&outFields=*&f=geojson`;
 
     let stopsUrl =
       `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/BusStopsWAmenities/FeatureServer/0/query` +
