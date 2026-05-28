@@ -35,16 +35,19 @@ export const getRouteGeometry = createServerFn({ method: "GET" })
       return { shape: null, stops: null, routeId };
     }
 
+    // Rail/Streetcar vehicles use route_ids ("A","B","S") that don't match
+    // the shape DB (rail is stored under route_id='0'). Fetch the whole layer
+    // for rail/streetcar and let the client filter by Direction + ServiceType.
+    const isRail = ["A", "B", "S"].includes(routeId);
+
+    const shapeWhere = isRail ? "1=1" : `route_id='${routeId}'`;
     const shapeUrl =
       `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroBusRoutes/FeatureServer/0/query` +
-      `?where=${encodeURIComponent(`route_id='${routeId}'`)}&outFields=*&f=geojson`;
+      `?where=${encodeURIComponent(shapeWhere)}&outFields=*&f=geojson`;
 
-    let stopsUrl = 
+    let stopsUrl =
       `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/BusStopsWAmenities/FeatureServer/0/query` +
       `?where=${encodeURIComponent(`Routes LIKE '%${routeId}%'`)}&outFields=*&f=geojson`;
-
-    // Override with the hidden Rail Stations layer if it's a Light Rail (A/B) or Streetcar (S)
-    const isRail = ["A", "B", "S"].includes(routeId);
 
     if (isRail) {
       stopsUrl = `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroRailStations/FeatureServer/0/query?where=1=1&outFields=*&f=geojson`;

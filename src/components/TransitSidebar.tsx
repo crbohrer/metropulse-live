@@ -81,7 +81,7 @@ export function TransitSidebar({
 
   const upcomingStops = useMemo(() => {
     if (!isRouteViewActive || !activeVehicle) return [];
-    const lines = getActiveRouteLines(routeShape, activeVehicle.direction);
+    const lines = getActiveRouteLines(routeShape, activeVehicle.direction, activeVehicle.vehicle_type);
     const ghosted = buildGhostedRoute(lines, activeVehicle);
     const stops = filterRouteStops(routeStops, activeVehicle);
     const items = stops
