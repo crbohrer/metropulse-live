@@ -153,6 +153,45 @@ export function TransitSidebar({
         </div>
       )}
 
+      {isRouteViewActive && activeVehicle && (
+        <div className="mb-3 rounded-xl border border-white/10 bg-white/[0.03]">
+          <button
+            onClick={() => setItineraryOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-3 py-2 text-left"
+          >
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Upcoming Stops ({upcomingStops.length})
+            </span>
+            <span className="text-xs text-muted-foreground">{itineraryOpen ? "−" : "+"}</span>
+          </button>
+          {itineraryOpen && (
+            <ul className="max-h-56 overflow-y-auto border-t border-white/5 px-2 py-1.5">
+              {upcomingStops.length === 0 && (
+                <li className="px-2 py-3 text-center text-xs text-muted-foreground">
+                  No upcoming stops.
+                </li>
+              )}
+              {upcomingStops.map((s, idx) => (
+                <li
+                  key={`${s.sid}-${idx}`}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-white/[0.04]"
+                >
+                  <MapPin className="h-3 w-3 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                  <span
+                    className={`shrink-0 font-mono text-[11px] ${s.ts ? "text-emerald-300" : "text-muted-foreground"}`}
+                    suppressHydrationWarning
+                  >
+                    {s.ts
+                      ? new Date(s.ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                      : "No live ETA"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
 
       {/* Filters */}
