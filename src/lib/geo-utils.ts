@@ -102,33 +102,65 @@ function dirMatch(a: string, b: string): boolean {
   return a.includes(b0) || b.includes(a0);
 }
 
-// Extract LineStrings from a route shape, filtered to ones whose Direction
-// property matches the active vehicle's direction (fuzzy). Falls back to all
-// lines if nothing matches.
+// Strict: first word of each direction (case-insensitive) must be equal.
+function dirStrict(a: string, b: string): boolean {
+  const aw = (a || "").trim().toLowerCase().split(/\s+/)[0];
+  const bw = (b || "").trim().toLowerCase().split(/\s+/)[0];
+  return !!aw && !!bw && aw === bw;
+}
+
+function featureServiceType(f: GeoFeatureLike): string {
+  const p = f.properties ?? {};
+  return String(
+    p.ServiceType ??
+      p.servicetype ??
+      p.service_type ??
+      p.RouteType ??
+      p.route_long_name ??
+      p.route_short_name ??
+      ""
+  ).toLowerCase();
+}
+
+// Extract LineStrings from a route shape. For rail/streetcar, the upstream
+// DB doesn't key features by the vehicle's route_id, so we filter by
+// ServiceType + Direction instead. Buses match by direction only (route_id
+// is already enforced by the server query).
 export function getActiveRouteLines(
   routeShape: GeoCollectionLike | null,
-  direction?: string | null
+  direction?: string | null,
+  vehicleType?: "bus" | "rail" | "streetcar"
 ): LngLat[][] {
   if (!routeShape) return [];
-  const all: { line: LngLat[]; dir: string }[] = [];
+  const all: { line: LngLat[]; dir: string; svc: string }[] = [];
   for (const f of routeShape.features) {
     const g = f.geometry;
     if (!g) continue;
     const dir = String(
       f.properties?.Direction ?? f.properties?.direction ?? ""
     ).toLowerCase();
+    const svc = featureServiceType(f);
     if (g.type === "LineString") {
-      all.push({ line: g.coordinates as LngLat[], dir });
+      all.push({ line: g.coordinates as LngLat[], dir, svc });
     } else if (g.type === "MultiLineString") {
       for (const part of g.coordinates as LngLat[][]) {
-        all.push({ line: part, dir });
+        all.push({ line: part, dir, svc });
       }
     }
   }
+
+  let pool = all;
+  if (vehicleType === "rail") {
+    pool = all.filter((l) => l.svc.includes("rail") && !l.svc.includes("streetcar"));
+  } else if (vehicleType === "streetcar") {
+    pool = all.filter((l) => l.svc.includes("streetcar"));
+  }
+  if (pool.length === 0) pool = all;
+
   const target = (direction ?? "").toLowerCase();
-  if (!target) return all.map((l) => l.line);
-  const matched = all.filter(({ dir }) => dirMatch(dir, target));
-  return (matched.length ? matched : all).map((l) => l.line);
+  if (!target) return pool.map((l) => l.line);
+  const matched = pool.filter(({ dir }) => dirMatch(dir, target));
+  return (matched.length ? matched : pool).map((l) => l.line);
 }
 
 interface ActiveVehicleLike {
@@ -139,27 +171,26 @@ interface ActiveVehicleLike {
   longitude: number;
 }
 
-// Strict stop filter: stop's Routes must contain the route_id, Direction must
-// fuzzily match, and ServiceType must match the vehicle_type for rail/streetcar.
+// Strict stop filter: Routes must contain route_id (when present), Direction
+// must STRICTLY match on first word (e.g. Southbound only allows South*), and
+// ServiceType must match vehicle_type for rail/streetcar.
 export function filterRouteStops(
   routeStops: GeoCollectionLike | null,
   activeVehicle: ActiveVehicleLike | null
 ): GeoFeatureLike[] {
   if (!routeStops || !activeVehicle) return [];
   const routeId = activeVehicle.route_id.split("·")[0].split(" · ")[0].trim();
-  const vDir = (activeVehicle.direction ?? "").toLowerCase();
+  const vDir = activeVehicle.direction ?? "";
   const routeRe = new RegExp(`(^|[,;\\s])${routeId}([,;\\s]|$)`, "i");
 
   return routeStops.features.filter((f) => {
     if (f.geometry?.type !== "Point") return false;
 
     const routes = String(f.properties.Routes ?? "");
-    if (routes) {
-      if (!routeRe.test(routes)) return false;
-    }
+    if (routes && !routeRe.test(routes)) return false;
 
-    const stopDir = String(f.properties.Direction ?? "").toLowerCase();
-    if (vDir && stopDir && !dirMatch(stopDir, vDir)) return false;
+    const stopDir = String(f.properties.Direction ?? "");
+    if (vDir && stopDir && !dirStrict(stopDir, vDir)) return false;
 
     const svc = String(
       f.properties.ServiceType ?? f.properties.servicetype ?? ""
