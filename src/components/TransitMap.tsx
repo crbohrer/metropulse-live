@@ -109,7 +109,7 @@ export function TransitMap({
   // Direction-filtered lines for the active vehicle.
   const routeLines = useMemo<LngLat[][]>(() => {
     if (!isRouteViewActive || !activeVehicle) return [];
-    return getActiveRouteLines(routeShape, activeVehicle.direction);
+    return getActiveRouteLines(routeShape, activeVehicle.direction, activeVehicle.vehicle_type);
   }, [isRouteViewActive, activeVehicle, routeShape]);
 
   const ghosted = useMemo(
