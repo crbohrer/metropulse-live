@@ -41,18 +41,18 @@ export const getRouteGeometry = createServerFn({ method: "GET" })
     const isRail = ["A", "B", "S"].includes(routeId);
         
         // TRANSLATE THE ID: Map real-time IDs to the official ArcGIS shape IDs
-        let queryId = routeId;
-        if (routeId === "A" || routeId === "B") {
-            queryId = "0"; // Force Light Rail to fetch route "0"
-        } 
-        // (Streetcar will stay "S". If its shape is missing later, we can update this.)
+        // TRANSLATE THE ID: Map real-time IDs to the official ArcGIS shape IDs
+        let shapeWhere = `route_id='${routeId}'`; // Default for buses
 
-        // NO MORE 1=1! Fetch only the specific translated route shape
-        const shapeWhere = `route_id='${queryId}'`;
-        
+        if (routeId === "A" || routeId === "B") {
+            shapeWhere = `route_id='0'`; // Force Light Rail to fetch route "0"
+        } else if (routeId === "S") {
+            // Streetcar real-time is "S", but ArcGIS stores it as route "85" or by name
+            shapeWhere = `route_id='85' OR ROUTE_LONG_NAME LIKE '%Streetcar%' OR ROUTE LIKE '%Streetcar%'`;
+        }
+
         const shapeUrl = `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroBusRoutes/FeatureServer/0/query` +
           `?where=${encodeURIComponent(shapeWhere)}&outFields=*&f=geojson`;
-
     let stopsUrl =
       `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/BusStopsWAmenities/FeatureServer/0/query` +
       `?where=${encodeURIComponent(`Routes LIKE '%${routeId}%'`)}&outFields=*&f=geojson`;
