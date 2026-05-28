@@ -82,3 +82,127 @@ export function alongDistance(line: LngLat[], p: LngLat): number {
   }
   return bestAlong;
 }
+
+// ----- Higher-level helpers shared by Map + Sidebar ---------------------------
+
+interface GeoFeatureLike {
+  type?: string;
+  geometry: { type: string; coordinates: unknown } | null;
+  properties: Record<string, unknown>;
+}
+interface GeoCollectionLike {
+  features: GeoFeatureLike[];
+}
+
+function dirMatch(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const a0 = a.split(" ")[0];
+  const b0 = b.split(" ")[0];
+  return a.includes(b0) || b.includes(a0);
+}
+
+// Extract LineStrings from a route shape, filtered to ones whose Direction
+// property matches the active vehicle's direction (fuzzy). Falls back to all
+// lines if nothing matches.
+export function getActiveRouteLines(
+  routeShape: GeoCollectionLike | null,
+  direction?: string | null
+): LngLat[][] {
+  if (!routeShape) return [];
+  const all: { line: LngLat[]; dir: string }[] = [];
+  for (const f of routeShape.features) {
+    const g = f.geometry;
+    if (!g) continue;
+    const dir = String(
+      f.properties?.Direction ?? f.properties?.direction ?? ""
+    ).toLowerCase();
+    if (g.type === "LineString") {
+      all.push({ line: g.coordinates as LngLat[], dir });
+    } else if (g.type === "MultiLineString") {
+      for (const part of g.coordinates as LngLat[][]) {
+        all.push({ line: part, dir });
+      }
+    }
+  }
+  const target = (direction ?? "").toLowerCase();
+  if (!target) return all.map((l) => l.line);
+  const matched = all.filter(({ dir }) => dirMatch(dir, target));
+  return (matched.length ? matched : all).map((l) => l.line);
+}
+
+interface ActiveVehicleLike {
+  route_id: string;
+  direction: string;
+  vehicle_type: "bus" | "rail" | "streetcar";
+  latitude: number;
+  longitude: number;
+}
+
+// Strict stop filter: stop's Routes must contain the route_id, Direction must
+// fuzzily match, and ServiceType must match the vehicle_type for rail/streetcar.
+export function filterRouteStops(
+  routeStops: GeoCollectionLike | null,
+  activeVehicle: ActiveVehicleLike | null
+): GeoFeatureLike[] {
+  if (!routeStops || !activeVehicle) return [];
+  const routeId = activeVehicle.route_id.split("·")[0].split(" · ")[0].trim();
+  const vDir = (activeVehicle.direction ?? "").toLowerCase();
+  const routeRe = new RegExp(`(^|[,;\\s])${routeId}([,;\\s]|$)`, "i");
+
+  return routeStops.features.filter((f) => {
+    if (f.geometry?.type !== "Point") return false;
+
+    const routes = String(f.properties.Routes ?? "");
+    if (routes) {
+      if (!routeRe.test(routes)) return false;
+    }
+
+    const stopDir = String(f.properties.Direction ?? "").toLowerCase();
+    if (vDir && stopDir && !dirMatch(stopDir, vDir)) return false;
+
+    const svc = String(
+      f.properties.ServiceType ?? f.properties.servicetype ?? ""
+    ).toLowerCase();
+    if (activeVehicle.vehicle_type === "rail" && svc && !svc.includes("light rail")) return false;
+    if (activeVehicle.vehicle_type === "streetcar" && svc && !svc.includes("streetcar")) return false;
+
+    return true;
+  });
+}
+
+// Build the ghosted-line context: nearest point on the (direction-filtered)
+// lines, the chosen line, and the along-distance of the vehicle.
+export interface GhostedRoute {
+  lines: LngLat[][];
+  chosen: LngLat[];
+  lineIndex: number;
+  segIndex: number;
+  point: LngLat;
+  vehicleAlong: number;
+  passed: LngLat[];
+  upcoming: LngLat[];
+}
+
+export function buildGhostedRoute(
+  lines: LngLat[][],
+  vehicle: { latitude: number; longitude: number } | null
+): GhostedRoute | null {
+  if (!vehicle || lines.length === 0) return null;
+  const p: LngLat = [vehicle.longitude, vehicle.latitude];
+  const nearest = nearestOnLines(lines, p);
+  if (!nearest) return null;
+  const chosen = lines[nearest.lineIndex];
+  const { passed, upcoming } = splitLine(chosen, nearest.segIndex, nearest.point);
+  return {
+    lines,
+    chosen,
+    lineIndex: nearest.lineIndex,
+    segIndex: nearest.segIndex,
+    point: nearest.point,
+    vehicleAlong: nearest.along,
+    passed,
+    upcoming,
+  };
+}
+
