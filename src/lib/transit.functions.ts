@@ -57,11 +57,12 @@ export const getLiveAlerts = createServerFn({ method: "GET" }).handler(async () 
 }); // <--- THIS closes the .handler()
 
 // Valley Metro classification by route_id.
-// Light Rail = "RAIL" / "0" / "RL"; Streetcar = "SMC" / "TS"; everything else = bus.
+// Light Rail = "RAIL" / "RL"; Streetcar = "SMC" / "TS"; everything else = bus.
 function classify(routeId: string | undefined): VehicleType {
   if (!routeId) return "bus";
   const r = routeId.toUpperCase();
-  if (r === "A" || r === "B" || r === "0") return "rail";
+  if (r === "0") return "bus";
+  if (r === "A" || r === "B") return "rail";
   // Update this line to include the actual ID you see in your feed
   if (r === "S") return "streetcar"; 
   
