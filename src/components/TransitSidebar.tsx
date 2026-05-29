@@ -169,6 +169,8 @@ export function TransitSidebar({
 
           return stopRef;
         }
+        return { name, sid, lat, lng, along, ts };
+      })
           
       .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null } => {
         if (!x) return false;
