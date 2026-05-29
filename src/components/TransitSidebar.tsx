@@ -104,9 +104,16 @@ export function TransitSidebar({
           "Transit Stop";
 
         // 1. ETA ID CATCH-ALL (Added PlatformID and .trim() to catch feed quirks)
-        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "").trim();
-        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? f.properties.PlatformID ?? "").trim();
-        const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
+        let ts: number | null = null;
+        for (const val of Object.values(f.properties || {})) {
+          if (val === null || val === undefined) continue;
+          const strVal = String(val).trim();
+          
+          if (strVal.length >= 3 && liveEtas?.[strVal] !== undefined) {
+            ts = liveEtas[strVal];
+            break;
+          }
+        }
 
         // 2. HARDCODED ROUTE A & B FILTER
         const routeId = activeVehicle?.route_id?.toUpperCase();
