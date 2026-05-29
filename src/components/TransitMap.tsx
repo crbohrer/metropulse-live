@@ -3,6 +3,7 @@ import L from "leaflet";
 import { useEffect, useMemo } from "react";
 import type { Vehicle, VehicleType } from "@/lib/mock-transit";
 import type { GeoJSON as RouteGeoJSON, GeoJSONFeature } from "@/lib/route-shapes.functions";
+import { nearestOnLines } from "@/lib/geo-utils"; // Adjust path if necessary
 import {
   alongDistance,
   buildGhostedRoute,
@@ -120,8 +121,26 @@ export function TransitMap({
   // Strictly filtered stops for the active route/direction/service.
   const stops = useMemo<GeoJSONFeature[]>(() => {
     if (!isRouteViewActive) return [];
-    return filterRouteStops(routeStops, activeVehicle) as GeoJSONFeature[];
-  }, [isRouteViewActive, routeStops, activeVehicle]);
+    
+    // 1. Get the base stops from Lovable's initial filter
+    const baseStops = filterRouteStops(routeStops, activeVehicle) as GeoJSONFeature[];
+
+    // 2. SPATIAL FILTER: Hide rail stops that aren't physically on the drawn line
+    const isRail = activeVehicle?.vehicle_type === "rail" || activeVehicle?.vehicle_type === "streetcar";
+    
+    if (isRail && routeLines.length > 0) {
+      return baseStops.filter((f) => {
+        const coords = f.geometry.coordinates as [number, number];
+        const nearest = nearestOnLines(routeLines, coords);
+        
+        // 0.000005 degrees squared is roughly 200 meters. 
+        // Only keep stops within that distance of our drawn route line!
+        return nearest && nearest.distSq <= 0.000005;
+      });
+    }
+
+    return baseStops;
+  }, [isRouteViewActive, routeStops, activeVehicle, routeLines]); // Added routeLines to dependencies
 
   const toLatLng = (coords: LngLat[]): [number, number][] =>
     coords.map(([lng, lat]) => [lat, lng]);
@@ -186,8 +205,9 @@ export function TransitMap({
           (f.properties.STOPNAME as string) ||
           "Transit Stop";
 
-        const sid = String(f.properties.stop_id ?? "");
-        const sco = String(f.properties.stop_code ?? "");
+        // Check for bus IDs first, then fall back to the train IDs (StationId / NextRide)
+        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "");
+        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? "");
         const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
         const etaLabel =
           typeof ts === "number"
