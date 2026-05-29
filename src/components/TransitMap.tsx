@@ -182,14 +182,24 @@ export function TransitMap({
           />
         </>
       ) : (
-        routeLines.map((line, i) => (
-          <Polyline
-            key={`shape-${shapeKey}-${i}`}
-            positions={toLatLng(line)}
-            pathOptions={{ color: activeColor, weight: 6, opacity: 0.85 }}
-          />
-        ))
-      )}
+        {routeLines.map((line, i) => {
+          if (i === ghosted.lineIndex) return null;
+          
+          // If the segment's index is before our active segment, consider it passed!
+          const isPassedSegment = i < ghosted.lineIndex;
+          
+          return (
+            <Polyline 
+              key={`other-${shapeKey}-${i}`} 
+              positions={toLatLng(line)} 
+              pathOptions={{ 
+                color: activeColor, 
+                weight: isPassedSegment ? 4 : 7, 
+                opacity: isPassedSegment ? 0.3 : 1.0 
+              }} 
+            />
+          );
+        })}
 
       {stops.map((f, i) => {
         const coords = f.geometry.coordinates as number[];
