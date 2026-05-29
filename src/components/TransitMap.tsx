@@ -121,27 +121,27 @@ export function TransitMap({
   // Strictly filtered stops for the active route/direction/service.
   const stops = useMemo<GeoJSONFeature[]>(() => {
     if (!isRouteViewActive) return [];
-    
-    // 1. Get the base stops from Lovable's initial filter
     const baseStops = filterRouteStops(routeStops, activeVehicle) as GeoJSONFeature[];
 
-    // 2. SPATIAL FILTER: Hide rail stops that aren't physically on the drawn line
     const isRail = activeVehicle?.vehicle_type === "rail" || activeVehicle?.vehicle_type === "streetcar";
-    
+    const routeId = activeVehicle?.route_id?.toUpperCase();
+
     if (isRail && routeLines.length > 0) {
       return baseStops.filter((f) => {
+        // 1. Hardcoded Route A & B textual filtering
+        const stopDir = String(f.properties.Direction ?? f.properties.direction ?? "").toLowerCase();
+        if (routeId === "A" && (stopDir.includes("north") || stopDir.includes("south"))) return false;
+        if (routeId === "B" && (stopDir.includes("east") || stopDir.includes("west"))) return false;
+
+        // 2. Spatial filtering (Keep stops within ~80m of the line)
         const coords = f.geometry.coordinates as [number, number];
         const nearest = nearestOnLines(routeLines, coords);
-        
-        // 0.0000001 degrees squared is roughly 30 meters. 
-        // Only keep stops within that distance of our drawn route line!
-        return nearest && nearest.distSq <= 0.00000005;
+        return nearest && nearest.distSq <= 0.0000006;
       });
     }
 
     return baseStops;
-  }, [isRouteViewActive, routeStops, activeVehicle, routeLines]); // Added routeLines to dependencies
-
+  }, [isRouteViewActive, routeStops, activeVehicle, routeLines]);
   const toLatLng = (coords: LngLat[]): [number, number][] =>
     coords.map(([lng, lat]) => [lat, lng]);
 
