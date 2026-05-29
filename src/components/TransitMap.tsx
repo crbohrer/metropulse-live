@@ -58,6 +58,16 @@ function MapClickHandler({ onBackgroundClick }: { onBackgroundClick: () => void 
   return null;
 }
 
+function FlyToStop({ stop }: { stop: { lat: number; lng: number } | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (stop) {
+      map.flyTo([stop.lat, stop.lng], Math.max(map.getZoom(), 16), { duration: 0.7 });
+    }
+  }, [stop, map]);
+  return null;
+}
+
 function formatDelay(seconds: number) {
   if (!seconds) return "On time";
   const abs = Math.abs(seconds);
@@ -74,6 +84,7 @@ interface Props {
   routeStops: RouteGeoJSON | null;
   isRouteViewActive: boolean;
   liveEtas: Record<string, number> | null;
+  focusedStop: { lat: number; lng: number; key: number } | null;
   onClearSelection: () => void;
   onSelectVehicle: (v: Vehicle) => void;
   onShowRoute: () => void;
@@ -86,6 +97,7 @@ export function TransitMap({
   routeStops,
   isRouteViewActive,
   liveEtas,
+  focusedStop,
   onClearSelection,
   onSelectVehicle,
   onShowRoute,
@@ -110,7 +122,8 @@ export function TransitMap({
   // Direction-filtered lines for the active vehicle.
   const routeLines = useMemo<LngLat[][]>(() => {
     if (!isRouteViewActive || !activeVehicle) return [];
-    return getActiveRouteLines(routeShape, activeVehicle.direction, activeVehicle.vehicle_type);
+    const rid = activeVehicle.route_id.split("·")[0].split(" · ")[0].trim();
+    return getActiveRouteLines(routeShape, activeVehicle.direction, activeVehicle.vehicle_type, rid);
   }, [isRouteViewActive, activeVehicle, routeShape]);
 
   const ghosted = useMemo(
@@ -121,26 +134,18 @@ export function TransitMap({
   // Strictly filtered stops for the active route/direction/service.
   const stops = useMemo<GeoJSONFeature[]>(() => {
     if (!isRouteViewActive) return [];
-    
-    // 1. Get the base stops from Lovable's initial filter
     const baseStops = filterRouteStops(routeStops, activeVehicle) as GeoJSONFeature[];
 
-    // 2. SPATIAL FILTER: Hide rail stops that aren't physically on the drawn line
-    const isRail = activeVehicle?.vehicle_type === "rail" || activeVehicle?.vehicle_type === "streetcar";
-    
-    if (isRail && routeLines.length > 0) {
-      return baseStops.filter((f) => {
-        const coords = f.geometry.coordinates as [number, number];
-        const nearest = nearestOnLines(routeLines, coords);
-        
-        // 0.0000001 degrees squared is roughly 30 meters. 
-        // Only keep stops within that distance of our drawn route line!
-        return nearest && nearest.distSq <= 0.00000005;
-      });
-    }
-
-    return baseStops;
-  }, [isRouteViewActive, routeStops, activeVehicle, routeLines]); // Added routeLines to dependencies
+    // SPATIAL FILTER: only keep stops physically on the drawn route line.
+    // Applied to all modes — keeps the itinerary clean for buses too.
+    if (routeLines.length === 0) return baseStops;
+    return baseStops.filter((f) => {
+      const coords = f.geometry.coordinates as [number, number];
+      const nearest = nearestOnLines(routeLines, coords);
+      // ~50m in squared lng/lat degrees at this latitude.
+      return nearest && nearest.distSq <= 0.0000002;
+    });
+  }, [isRouteViewActive, routeStops, activeVehicle, routeLines]);
 
   const toLatLng = (coords: LngLat[]): [number, number][] =>
     coords.map(([lng, lat]) => [lat, lng]);
@@ -158,18 +163,26 @@ export function TransitMap({
       />
       <MapClickHandler onBackgroundClick={onClearSelection} />
       <FlyToActive vehicle={activeVehicle} />
+      <FlyToStop stop={focusedStop} />
 
       {ghosted ? (
         <>
-          {routeLines.map((line, i) =>
-            i === ghosted.lineIndex ? null : (
+          {routeLines.map((line, i) => {
+            if (i === ghosted.lineIndex) return null;
+            // Lines before the active line are "passed"; lines after are upcoming.
+            const isPassedSegment = i < ghosted.lineIndex;
+            return (
               <Polyline
                 key={`other-${shapeKey}-${i}`}
                 positions={toLatLng(line)}
-                pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
+                pathOptions={{
+                  color: activeColor,
+                  weight: isPassedSegment ? 4 : 7,
+                  opacity: isPassedSegment ? 0.3 : 1.0,
+                }}
               />
-            )
-          )}
+            );
+          })}
           <Polyline
             key={`passed-${shapeKey}`}
             positions={toLatLng(ghosted.passed)}
@@ -182,27 +195,19 @@ export function TransitMap({
           />
         </>
       ) : (
+        // No reliable snap (vehicle off-line / parallel return track) — render
+        // everything bright and solid; do NOT dim any segment.
         <>
-            {routeLines.map((line, i) => {
-              if (i === ghosted.lineIndex) return null;
+          {routeLines.map((line, i) => (
+            <Polyline
+              key={`solid-${shapeKey}-${i}`}
+              positions={toLatLng(line)}
+              pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
+            />
+          ))}
+        </>
+      )}
 
-              // If the segment's index is before our active segment, consider it passed!
-              const isPassedSegment = i < ghosted.lineIndex;
-
-              return (
-                <Polyline
-                  key={`other-${shapeKey}-${i}`}
-                  positions={toLatLng(line)}
-                  pathOptions={{
-                    color: activeColor,
-                    weight: isPassedSegment ? 4 : 7,
-                    opacity: isPassedSegment ? 0.3 : 1.0
-                  }}
-                />
-              );
-            })}
-          </>
-        )}
 
       {stops.map((f, i) => {
         const coords = f.geometry.coordinates as number[];
@@ -218,10 +223,23 @@ export function TransitMap({
           (f.properties.STOPNAME as string) ||
           "Transit Stop";
 
-        // Check for bus IDs first, then fall back to the train IDs (StationId / NextRide)
-        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "");
-        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? "");
-        const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
+        // Rail/Streetcar stops expose StationId/NextRide/PlatformID instead of stop_id/stop_code.
+        const idCandidates = [
+          f.properties.stop_id,
+          f.properties.stop_code,
+          f.properties.StationId,
+          f.properties.NextRide,
+          f.properties.PlatformID,
+          f.properties.PlatformId,
+          f.properties.platform_id,
+        ];
+        const sid = String(idCandidates[0] ?? "");
+        let ts: number | null = null;
+        for (const c of idCandidates) {
+          if (c == null) continue;
+          const v = liveEtas?.[String(c)];
+          if (typeof v === "number") { ts = v; break; }
+        }
         const etaLabel =
           typeof ts === "number"
             ? new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
