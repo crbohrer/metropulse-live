@@ -252,6 +252,12 @@ export interface GhostedRoute {
   upcoming: LngLat[];
 }
 
+// Roughly 120 meters in squared lng/lat degrees at this latitude. If the
+// vehicle is farther than this from any track segment, the snap is almost
+// certainly meaningless (parallel return track, off-route reposition, GPS
+// drift) — skip ghosting entirely so the path stays solid/bright.
+const MAX_SNAP_DIST_SQ = 0.0000012;
+
 export function buildGhostedRoute(
   lines: LngLat[][],
   vehicle: { latitude: number; longitude: number } | null
@@ -260,6 +266,7 @@ export function buildGhostedRoute(
   const p: LngLat = [vehicle.longitude, vehicle.latitude];
   const nearest = nearestOnLines(lines, p);
   if (!nearest) return null;
+  if (nearest.distSq > MAX_SNAP_DIST_SQ) return null;
   const chosen = lines[nearest.lineIndex];
   const { passed, upcoming } = splitLine(chosen, nearest.segIndex, nearest.point);
   return {
