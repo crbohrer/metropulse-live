@@ -237,17 +237,6 @@ export function TransitMap({
             console.log(`Missing ETA for ${name}. Database provided:`, f.properties);
         }
 
-        // 3. KEEP THIS EXACTLY AS IT WAS
-        const etaLabel =
-          typeof ts === "number"
-            ? new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-            : "No live ETA";
-
-        let isPassed = false;
-        if (ghosted) {
-          const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
-          isPassed = stopAlong < ghosted.vehicleAlong;
-        }
         const etaLabel =
           typeof ts === "number"
             ? new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
