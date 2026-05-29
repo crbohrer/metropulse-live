@@ -152,6 +152,10 @@ export function TransitMap({
     return coords.map(([lng, lat]) => [lat, lng]);
   };
 
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => { setIsClient(true); }, []);
+  if (!isClient) return null; // Wait for the browser to be ready!
+
   return (
     <MapContainer
       center={TEMPE_CENTER}
