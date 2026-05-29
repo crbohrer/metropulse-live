@@ -133,8 +133,8 @@ export function TransitMap({
 
     if (isRail && routeLines.length > 0) {
       return baseStops.filter((f) => {
-        // 1. Hardcoded Route A & B textual filtering
-        const stopDir = String(f.properties.Direction ?? f.properties.direction ?? "").toLowerCase();
+        // 1. Hardcoded Route A & B textual filtering 
+        const stopDir = String(f.properties?.Direction ?? f.properties?.direction ?? "").toLowerCase();
         if (routeId === "A" && (stopDir.includes("north") || stopDir.includes("south"))) return false;
         if (routeId === "B" && (stopDir.includes("east") || stopDir.includes("west"))) return false;
 
@@ -196,17 +196,17 @@ export function TransitMap({
           if (typeof lat !== "number" || typeof lng !== "number") return null;
 
         const name =
-          (f.properties.stop_name as string) ||
-          (f.properties.StationName as string) ||
-          (f.properties.STATION as string) ||
-          (f.properties.Stop_Name as string) ||
-          (f.properties.StopName as string) ||
-          (f.properties.STOPNAME as string) ||
+          (f.properties?.stop_name as string) ||
+          (f.properties?.StationName as string) ||
+          (f.properties?.STATION as string) ||
+          (f.properties?.Stop_Name as string) ||
+          (f.properties?.StopName as string) ||
+          (f.properties?.STOPNAME as string) ||
           "Transit Stop";
       
         // Check for bus IDs first, then fall back to the train IDs (StationId / NextRide / PlatformID)
-        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "").trim();
-        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? f.properties.PlatformID ?? "").trim();
+        const sid = String(f.properties?.stop_id ?? f.properties?.StationId ?? "").trim();
+        const sco = String(f.properties?.stop_code ?? f.properties?.NextRide ?? f.properties?.PlatformID ?? "").trim();
         const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
 
         const etaLabel =
