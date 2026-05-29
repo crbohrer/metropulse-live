@@ -211,20 +211,24 @@ export function TransitSidebar({
                 </li>
               )}
               {upcomingStops.map((s, idx) => (
-                <li
-                  key={`${s.sid}-${idx}`}
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-white/[0.04]"
-                >
-                  <MapPin className="h-3 w-3 shrink-0 text-primary" />
-                  <span className="min-w-0 flex-1 truncate">{s.name}</span>
-                  <span
-                    className={`shrink-0 font-mono text-[11px] ${s.ts ? "text-emerald-300" : "text-muted-foreground"}`}
-                    suppressHydrationWarning
+                <li key={`${s.sid}-${idx}`}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectStop(s.lat, s.lng)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition hover:bg-white/[0.06] focus:bg-white/[0.06] focus:outline-none"
+                    title="Center map on this stop"
                   >
-                    {s.ts
-                      ? new Date(s.ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-                      : "No live ETA"}
-                  </span>
+                    <MapPin className="h-3 w-3 shrink-0 text-primary" />
+                    <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                    <span
+                      className={`shrink-0 font-mono text-[11px] ${s.ts ? "text-emerald-300" : "text-muted-foreground"}`}
+                      suppressHydrationWarning
+                    >
+                      {s.ts
+                        ? new Date(s.ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                        : "No live ETA"}
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
