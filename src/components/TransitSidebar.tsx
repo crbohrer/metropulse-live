@@ -84,19 +84,31 @@ export function TransitSidebar({
 
   const upcomingStops = useMemo(() => {
     if (!isRouteViewActive || !activeVehicle) return [];
-    const lines = getActiveRouteLines(routeShape, activeVehicle.direction, activeVehicle.vehicle_type);
+    const rid = activeVehicle.route_id.split("·")[0].split(" · ")[0].trim();
+    const lines = getActiveRouteLines(
+      routeShape,
+      activeVehicle.direction,
+      activeVehicle.vehicle_type,
+      rid,
+    );
     const ghosted = buildGhostedRoute(lines, activeVehicle);
     const stops = filterRouteStops(routeStops, activeVehicle);
-    // Add a tracker to prevent duplicate stop names in the sidebar
     const seenNames = new Set<string>();
 
-    const items = stops
+    return stops
       .map((f) => {
         const coords = (f.geometry?.coordinates as number[]) ?? [];
         const [lng, lat] = coords;
         if (typeof lat !== "number" || typeof lng !== "number") return null;
 
+        // SPATIAL FILTER: stop must lie on the drawn route line (~50m).
+        if (lines.length > 0) {
+          const nearest = nearestOnLines(lines, [lng, lat]);
+          if (!nearest || nearest.distSq > 0.0000002) return null;
+        }
+
         const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
+        // Strict upcoming: skip stops the vehicle has already passed.
         if (ghosted && along < ghosted.vehicleAlong) return null;
 
         const name =
@@ -106,23 +118,32 @@ export function TransitSidebar({
           (f.properties.StopName as string) ||
           "Transit Stop";
 
-        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "");
-        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? "");
-        const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
+        const idCandidates = [
+          f.properties.stop_id,
+          f.properties.stop_code,
+          f.properties.StationId,
+          f.properties.NextRide,
+          f.properties.PlatformID,
+          f.properties.PlatformId,
+          f.properties.platform_id,
+        ];
+        const sid = String(idCandidates[0] ?? name);
+        let ts: number | null = null;
+        for (const c of idCandidates) {
+          if (c == null) continue;
+          const v = liveEtas?.[String(c)];
+          if (typeof v === "number") { ts = v; break; }
+        }
 
-        // We removed the strict ETA filter here so stops always show up!
-        return { name, sid, sco, along, ts };
+        return { name, sid, lat, lng, along, ts };
       })
-      .filter((x): x is { name: string; sid: string; sco: string; along: number; ts: number | null } => {
+      .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null } => {
         if (!x) return false;
-        
-        // DEDUPLICATOR: Only allow one stop per name into the list
         if (seenNames.has(x.name)) return false;
         seenNames.add(x.name);
         return true;
       })
       .sort((a, b) => a.along - b.along);
-    return items;
   }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas]);
 
   return (
