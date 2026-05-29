@@ -225,32 +225,32 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
 };
 
 /**
- * Direct fetcher that hits Valley Metro's NextRide API for exact rail platform predictions
+ * Server-wrapped fetcher that hits Valley Metro's NextRide API securely from the server
  */
-export async function fetchLiveRailEta(stopName: string, direction: string): Promise<number | null> {
-  try {
-    const cleanName = stopName.replace(" Station", "").trim();
-    const station = RAIL_STATION_CODES[cleanName];
-    if (!station) return null;
+export const getLiveRailEta = createServerFn({ method: "GET" })
+  .inputValidator((data: { stopName: string; direction: string }) => data)
+  .handler(async ({ data }): Promise<{ ts: number | null }> => {
+    try {
+      const cleanName = data.stopName.replace(" Station", "").trim();
+      const station = RAIL_STATION_CODES[cleanName];
+      if (!station) return { ts: null };
 
-    // Match direction mapping string cleanly
-    const dirKey = direction.toLowerCase() as 'eastbound' | 'westbound' | 'northbound' | 'southbound';
-    const stopCode = station[dirKey];
-    if (!stopCode) return null;
+      const dirKey = data.direction.toLowerCase() as 'eastbound' | 'westbound' | 'northbound' | 'southbound';
+      const stopCode = station[dirKey];
+      if (!stopCode) return { ts: null };
 
-    // Hit the live NextRide JSON endpoint directly
-    const response = await fetch(`https://api.valleymetro.org/nextride/v1/predictions/stop/${stopCode}`);
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    
-    // Grab the ETA timestamp of the very next approaching train payload
-    if (data && data.predictions && data.predictions.length > 0) {
-      const nextArrival = data.predictions[0].estimated_arrival_time;
-      return typeof nextArrival === "number" ? nextArrival : Date.parse(nextArrival);
+      const response = await fetch(`https://api.valleymetro.org/nextride/v1/predictions/stop/${stopCode}`);
+      if (!response.ok) return { ts: null };
+      
+      const resData = await response.json();
+      
+      if (resData && resData.predictions && resData.predictions.length > 0) {
+        const nextArrival = resData.predictions[0].estimated_arrival_time;
+        const ts = typeof nextArrival === "number" ? nextArrival : Date.parse(nextArrival);
+        return { ts };
+      }
+    } catch (error) {
+      console.error("Error fetching direct rail platform ETA on server:", error);
     }
-  } catch (error) {
-    console.error("Error fetching direct rail platform ETA:", error);
-  }
-  return null;
-}
+    return { ts: null };
+  });
