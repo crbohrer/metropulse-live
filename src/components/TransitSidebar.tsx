@@ -167,7 +167,24 @@ export function TransitSidebar({
         seenNames.add(x.name);
         return true;
       })
+      // Replace your current sort block:
       .sort((a, b) => a.along - b.along);
+
+      // With this property sequence fallback version:
+      .sort((a, b) => {
+      // Extract sequence indices if available in your data structure properties
+      const seqA = a.properties?.stop_sequence ?? a.properties?.Sequence ?? a.properties?.SequenceNum ?? 0;
+      const seqB = b.properties?.stop_sequence ?? b.properties?.Sequence ?? b.properties?.SequenceNum ?? 0;
+  
+      if (seqA !== 0 || seqB !== 0) {
+        // If traveling in reverse direction, invert the list order
+        const isReverse = activeVehicle.direction?.toLowerCase().includes('west') || activeVehicle.direction?.toLowerCase().includes('south');
+        return isReverse ? seqB - seqA : seqA - seqB;
+      }
+  
+      // Fallback to spatial tracking if sequences aren't present
+      return a.along - b.along;
+    });
   }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas, railEtas]);
 
 // Background fetcher for live Light Rail and Streetcar ETAs
