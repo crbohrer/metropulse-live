@@ -58,6 +58,16 @@ function MapClickHandler({ onBackgroundClick }: { onBackgroundClick: () => void 
   return null;
 }
 
+function FlyToStop({ stop }: { stop: { lat: number; lng: number } | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (stop) {
+      map.flyTo([stop.lat, stop.lng], Math.max(map.getZoom(), 16), { duration: 0.7 });
+    }
+  }, [stop, map]);
+  return null;
+}
+
 function formatDelay(seconds: number) {
   if (!seconds) return "On time";
   const abs = Math.abs(seconds);
