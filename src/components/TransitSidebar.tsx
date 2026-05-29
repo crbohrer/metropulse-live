@@ -101,38 +101,50 @@ export function TransitSidebar({
         const [lng, lat] = coords;
         if (typeof lat !== "number" || typeof lng !== "number") return null;
 
-        // SPATIAL FILTER: stop must lie on the drawn route line (~50m).
+        // 1. TIGHTENED SPATIAL FILTER: Max distance drop from ~50m to ~15m
         if (lines.length > 0) {
           const nearest = nearestOnLines(lines, [lng, lat]);
-          if (!nearest || nearest.distSq > 0.0000002) return null;
+          // Dropping distSq threshold from 0.0000002 down to 0.00000004
+          if (!nearest || nearest.distSq > 0.00000004) return null;
         }
 
         const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
+
         // Strict upcoming: skip stops the vehicle has already passed.
         if (ghosted && along < ghosted.vehicleAlong) return null;
 
         const name =
-          (f.properties.stop_name as string) ||
-          (f.properties.StationName as string) ||
-          (f.properties.Stop_Name as string) ||
-          (f.properties.StopName as string) ||
+          f.properties?.stop_name ||
+          f.properties?.StationName ||
+          f.properties?.Stop_Name ||
+          f.properties?.StopName ||
           "Transit Stop";
 
+        // 2. OVERHAULED BULLETPROOF ETA LOOKUP
         const idCandidates = [
-          f.properties.stop_id,
-          f.properties.stop_code,
-          f.properties.StationId,
-          f.properties.NextRide,
-          f.properties.PlatformID,
-          f.properties.PlatformId,
-          f.properties.platform_id,
+          f.properties?.stop_id,
+          f.properties?.stop_code,
+          f.properties?.StationId,
+          f.properties?.NextRide,
+          f.properties?.PlatformID,
+          f.properties?.PlatformId,
+          f.properties?.platform_id,
         ];
+
         const sid = String(idCandidates[0] ?? name);
         let ts: number | null = null;
+
+        // Check raw keys, trimmed string keys, and padded keys for rail alignment
         for (const c of idCandidates) {
           if (c == null) continue;
-          const v = liveEtas?.[String(c)];
-          if (typeof v === "number") { ts = v; break; }
+          const cleanKey = String(c).trim();
+          const paddedKey = cleanKey.padStart(4, '0'); // Catch leading zero mismatches (e.g., '104' vs '0104')
+
+          const match = liveEtas?.[cleanKey] ?? liveEtas?.[paddedKey] ?? liveEtas?.[String(c)];
+          if (typeof match === "number") {
+            ts = match;
+            break;
+          }
         }
 
         return { name, sid, lat, lng, along, ts };
