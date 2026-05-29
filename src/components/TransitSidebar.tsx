@@ -68,6 +68,7 @@ export function TransitSidebar({
 }: Props) {
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
+  const [, forceUpdate] = useState({});
   const [itineraryOpen, setItineraryOpen] = useState(true);
 
   const filtered = vehicles.filter(
