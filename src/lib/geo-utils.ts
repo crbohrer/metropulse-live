@@ -124,51 +124,75 @@ function featureServiceType(f: GeoFeatureLike): string {
 
 // Extract LineStrings from a route shape. For rail/streetcar, the upstream
 // DB doesn't key features by the vehicle's route_id, so we filter by
-// ServiceType + Direction instead. Buses match by direction only (route_id
-// is already enforced by the server query).
+// SYMBOLOGY/ROUTE_NUMBER + Direction instead. Buses match by direction only
+// (route_id is already enforced by the server query).
 export function getActiveRouteLines(
   routeShape: GeoCollectionLike | null,
   direction?: string | null,
-  vehicleType?: "bus" | "rail" | "streetcar"
+  vehicleType?: "bus" | "rail" | "streetcar",
+  routeId?: string | null
 ): LngLat[][] {
   if (!routeShape) return [];
-  const all: { line: LngLat[]; dir: string; svc: string }[] = [];
+  const all: { line: LngLat[]; dir: string; svc: string; routeTag: string }[] = [];
   for (const f of routeShape.features) {
     const g = f.geometry;
     if (!g) continue;
-    // 1. NEW DIR AND SVC LOGIC (Replace lines 139-142 with this)
-    const propsString = JSON.stringify(f.properties || {}).toLowerCase();
+    const p = (f.properties || {}) as Record<string, unknown>;
+    // Direction: prefer ROUTE_NUMBER ("... Northbound") which is authoritative
+    // for rail/streetcar; fall back to any direction-like prop for buses.
+    const dirSource = String(
+      p.ROUTE_NUMBER ?? p.Direction ?? p.direction ?? p.DIR ?? ""
+    ).toLowerCase();
     let dir = "";
-    if (propsString.includes("north")) dir = "north";
-    else if (propsString.includes("south")) dir = "south";
-    else if (propsString.includes("east")) dir = "east";
-    else if (propsString.includes("west")) dir = "west";
+    if (dirSource.includes("north")) dir = "north";
+    else if (dirSource.includes("south")) dir = "south";
+    else if (dirSource.includes("east")) dir = "east";
+    else if (dirSource.includes("west")) dir = "west";
 
-    let svc = featureServiceType(f);
-    const routeName = String(f.properties?.ROUTE ?? "").toLowerCase();
-    if (routeName) svc += " " + routeName;
+    const svc = (
+      featureServiceType(f) +
+      " " +
+      String(p.SYMBOLOGY ?? "") +
+      " " +
+      String(p.ROUTE ?? "") +
+      " " +
+      String(p.ROUTE_NUMBER ?? "")
+    ).toLowerCase();
+
+    // routeTag holds a normalized route identifier for rail (a, b, s).
+    let routeTag = "";
+    const sym = String(p.SYMBOLOGY ?? "").toLowerCase();
+    const rnum = String(p.ROUTE_NUMBER ?? "").toLowerCase();
+    if (sym.includes("a-line") || /\brail a\b/.test(rnum)) routeTag = "a";
+    else if (sym.includes("b-line") || /\brail b\b/.test(rnum)) routeTag = "b";
+    else if (sym.includes("streetcar") || svc.includes("streetcar")) routeTag = "s";
 
     if (g.type === "LineString") {
-      all.push({ line: g.coordinates as LngLat[], dir, svc });
+      all.push({ line: g.coordinates as LngLat[], dir, svc, routeTag });
     } else if (g.type === "MultiLineString") {
       for (const part of g.coordinates as LngLat[][]) {
-        all.push({ line: part, dir, svc });
+        all.push({ line: part, dir, svc, routeTag });
       }
     }
   }
 
   let pool = all;
+  const rid = (routeId ?? "").trim().toLowerCase();
+
   if (vehicleType === "rail") {
-    pool = all.filter((l) => l.svc.includes("rail") && !l.svc.includes("streetcar"));
+    // STRICT: Route A must never load Route B tracks.
+    if (rid === "a" || rid === "b") {
+      pool = all.filter((l) => l.routeTag === rid);
+    } else {
+      pool = all.filter((l) => l.routeTag === "a" || l.routeTag === "b");
+    }
   } else if (vehicleType === "streetcar") {
-    pool = all.filter((l) => l.svc.includes("streetcar"));
+    pool = all.filter((l) => l.routeTag === "s" || l.svc.includes("streetcar"));
   }
   if (pool.length === 0) pool = all;
 
   const target = (direction ?? "").toLowerCase();
-
-  // We now have accurate train directions, so apply the filter to everything!
-  if (!target) return pool.map((l) => l.line); 
+  if (!target) return pool.map((l) => l.line);
   const matched = pool.filter(({ dir }) => dirMatch(dir, target));
   return (matched.length ? matched : pool).map((l) => l.line);
 }
