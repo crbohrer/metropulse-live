@@ -153,19 +153,23 @@ export function TransitSidebar({
         const isRailRoute = type === 'rail' || type === 'streetcar' || activeVehicle.route_id.includes('A') || activeVehicle.route_id.includes('B');
         
         if (!ts && isRailRoute) {
-          // Fire off the secure background server request to Valley Metro's NextRide API
+          // Create a placeholder object reference we can mutate safely
+          const stopRef = { name, sid, lat, lng, along, ts: null as number | null };
+          
           getLiveRailEta({ stopName: name, direction: activeVehicle.direction })
             .then((res) => {
               if (res?.ts) {
-                // Mutate the memoized item directly when the promise resolves to trigger the layout update
-                s.ts = res.ts;
+                // Update our local reference
+                stopRef.ts = res.ts;
+                // Force the sidebar to re-render and display the newly fetched timestamp
+                forceUpdate({});
               }
             })
             .catch((err) => console.error("Direct rail ETA tracking failed:", err));
-        }
 
-        return { name , sid , lat , lng , along , ts } ;
-      })
+          return stopRef;
+        }
+          
       .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null } => {
         if (!x) return false;
         if (seenNames.has(x.name)) return false;
