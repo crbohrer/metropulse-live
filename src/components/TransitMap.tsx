@@ -160,27 +160,38 @@ export function TransitMap({
       <FlyToActive vehicle={activeVehicle} />
 
       {ghosted ? (
-        <>
-          {routeLines.map((line, i) =>
-            i === ghosted.lineIndex ? null : (
-              <Polyline
-                key={`other-${shapeKey}-${i}`}
-                positions={toLatLng(line)}
-                pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
+          <>
+            {routeLines.map((line, i) => {
+              if (i === ghosted.lineIndex) return null;
+              
+              // Dim the segments that the bus has already driven over
+              const isPassedSegment = i < ghosted.lineIndex;
+              return (
+                <Polyline 
+                  key={`other-${shapeKey}-${i}`} 
+                  positions={toLatLng(line)} 
+                  pathOptions={{ 
+                    color: activeColor, 
+                    weight: isPassedSegment ? 4 : 7, 
+                    opacity: isPassedSegment ? 0.3 : 1.0 
+                  }} 
+                />
+              );
+            })}
+            <Polyline key={`passed-${shapeKey}`} positions={toLatLng(ghosted.passed)} pathOptions={{ color: activeColor, weight: 4, opacity: 0.3 }} />
+            <Polyline key={`upcoming-${shapeKey}`} positions={toLatLng(ghosted.upcoming)} pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }} />
+          </>
+        ) : (
+          <>
+            {routeLines.map((line, i) => (
+              <Polyline 
+                key={`other-${shapeKey}-${i}`} 
+                positions={toLatLng(line)} 
+                pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }} 
               />
-            )
-          )}
-          <Polyline
-            key={`passed-${shapeKey}`}
-            positions={toLatLng(ghosted.passed)}
-            pathOptions={{ color: activeColor, weight: 4, opacity: 0.3 }}
-          />
-          <Polyline
-            key={`upcoming-${shapeKey}`}
-            positions={toLatLng(ghosted.upcoming)}
-            pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
-          />
-        </>
+            ))}
+          </>
+        )}
       ) : (
         <>
             {routeLines.map((line, i) => {
