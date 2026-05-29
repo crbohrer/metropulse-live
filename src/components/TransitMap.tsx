@@ -135,7 +135,7 @@ export function TransitMap({
         
         // 0.0000001 degrees squared is roughly 30 meters. 
         // Only keep stops within that distance of our drawn route line!
-        return nearest && nearest.distSq <= 0.000000001;
+        return nearest && nearest.distSq <= 0.00000001;
       });
     }
 
