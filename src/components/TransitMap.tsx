@@ -113,45 +113,37 @@ export function TransitMap({
     return getActiveRouteLines(routeShape, activeVehicle.direction, activeVehicle.vehicle_type);
   }, [isRouteViewActive, activeVehicle, routeShape]);
 
-  const ghosted = useMemo(() => {
-    if (!isRouteViewActive || !activeVehicle || routeLines.length === 0) return null;
-    try {
-      return buildGhostedRoute(routeLines, activeVehicle);
-    } catch (err) {
-      return null; // Gracefully fall back to standard lines if math fails
-    }
-  }, [isRouteViewActive, routeLines, activeVehicle]);
+  const ghosted = useMemo(
+    () => (isRouteViewActive ? buildGhostedRoute(routeLines, activeVehicle) : null),
+    [isRouteViewActive, routeLines, activeVehicle]
+  );
 
   // Strictly filtered stops for the active route/direction/service.
   const stops = useMemo<GeoJSONFeature[]>(() => {
     if (!isRouteViewActive) return [];
+    
+    // 1. Get the base stops from Lovable's initial filter
     const baseStops = filterRouteStops(routeStops, activeVehicle) as GeoJSONFeature[];
 
+    // 2. SPATIAL FILTER: Hide rail stops that aren't physically on the drawn line
     const isRail = activeVehicle?.vehicle_type === "rail" || activeVehicle?.vehicle_type === "streetcar";
-    const routeId = activeVehicle?.route_id?.toUpperCase();
-
+    
     if (isRail && routeLines.length > 0) {
       return baseStops.filter((f) => {
-        // 1. Hardcoded Route A & B textual filtering 
-        const stopDir = String(f.properties?.Direction ?? f.properties?.direction ?? "").toLowerCase();
-        if (routeId === "A" && (stopDir.includes("north") || stopDir.includes("south"))) return false;
-        if (routeId === "B" && (stopDir.includes("east") || stopDir.includes("west"))) return false;
-
-        // 2. Spatial filtering (Keep stops within ~80m of the line)
-        const coords = f.geometry?.coordinates as [number, number] | undefined;
-        if (!coords || !Array.isArray(coords)) return false; // Safe bailout!
+        const coords = f.geometry.coordinates as [number, number];
         const nearest = nearestOnLines(routeLines, coords);
-        return nearest && nearest.distSq <= 0.0000006;
+        
+        // 0.0000001 degrees squared is roughly 30 meters. 
+        // Only keep stops within that distance of our drawn route line!
+        return nearest && nearest.distSq <= 0.00000005;
       });
     }
 
     return baseStops;
-  }, [isRouteViewActive, routeStops, activeVehicle, routeLines]);
-  const toLatLng = (coords?: LngLat[] | null): [number, number][] => {
-    if (!coords || !Array.isArray(coords)) return [];
-    return coords.map(([lng, lat]) => [lat, lng]);
-  };
+  }, [isRouteViewActive, routeStops, activeVehicle, routeLines]); // Added routeLines to dependencies
 
+  const toLatLng = (coords: LngLat[]): [number, number][] =>
+    coords.map(([lng, lat]) => [lat, lng]);
 
   return (
     <MapContainer
@@ -168,62 +160,77 @@ export function TransitMap({
       <FlyToActive vehicle={activeVehicle} />
 
       {ghosted ? (
-          <>
-            {routeLines.map((line, i) => i === ghosted.lineIndex || !line || line.length === 0 ? null : (
-              <Polyline key={`other-${shapeKey}-${i}`} positions={toLatLng(line)} pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }} />
-            ))}
-            
-            {/* Only render these lines if Turf.js actually returned coordinates! */}
-            {ghosted.passed && ghosted.passed.length > 0 && (
-              <Polyline key={`passed-${shapeKey}`} positions={toLatLng(ghosted.passed)} pathOptions={{ color: activeColor, weight: 4, opacity: 0.3 }} />
-            )}
-            {ghosted.upcoming && ghosted.upcoming.length > 0 && (
-              <Polyline key={`upcoming-${shapeKey}`} positions={toLatLng(ghosted.upcoming)} pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }} />
-            )}
-          </>
-        ) : (
-          <>
-            {routeLines.map((line, i) => (
-              <Polyline key={`other-${shapeKey}-${i}`} positions={toLatLng(line)} pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }} />
-            ))}
+        <>
+          {routeLines.map((line, i) =>
+            i === ghosted.lineIndex ? null : (
+              <Polyline
+                key={`other-${shapeKey}-${i}`}
+                positions={toLatLng(line)}
+                pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
+              />
+            )
+          )}
+          <Polyline
+            key={`passed-${shapeKey}`}
+            positions={toLatLng(ghosted.passed)}
+            pathOptions={{ color: activeColor, weight: 4, opacity: 0.3 }}
+          />
+          <Polyline
+            key={`upcoming-${shapeKey}`}
+            positions={toLatLng(ghosted.upcoming)}
+            pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
+          />
+        </>
+      ) : (
+        <>
+            {routeLines.map((line, i) => {
+              if (i === ghosted.lineIndex) return null;
+
+              // If the segment's index is before our active segment, consider it passed!
+              const isPassedSegment = i < ghosted.lineIndex;
+
+              return (
+                <Polyline
+                  key={`other-${shapeKey}-${i}`}
+                  positions={toLatLng(line)}
+                  pathOptions={{
+                    color: activeColor,
+                    weight: isPassedSegment ? 4 : 7,
+                    opacity: isPassedSegment ? 0.3 : 1.0
+                  }}
+                />
+              );
+            })}
           </>
         )}
 
       {stops.map((f, i) => {
-          const coords = f.geometry?.coordinates as number[] | undefined;
-          if (!coords || !Array.isArray(coords)) return null; // Safe bailout!
-          const [lng, lat] = coords;
-          if (typeof lat !== "number" || typeof lng !== "number") return null;
+        const coords = f.geometry.coordinates as number[];
+        const [lng, lat] = coords;
+        if (typeof lat !== "number" || typeof lng !== "number") return null;
 
         const name =
-          (f.properties?.stop_name as string) ||
-          (f.properties?.StationName as string) ||
-          (f.properties?.STATION as string) ||
-          (f.properties?.Stop_Name as string) ||
-          (f.properties?.StopName as string) ||
-          (f.properties?.STOPNAME as string) ||
+          (f.properties.stop_name as string) ||
+          (f.properties.StationName as string) ||
+          (f.properties.STATION as string) ||
+          (f.properties.Stop_Name as string) ||
+          (f.properties.StopName as string) ||
+          (f.properties.STOPNAME as string) ||
           "Transit Stop";
-      
-        // Check for bus IDs first, then fall back to the train IDs (StationId / NextRide / PlatformID)
-        const sid = String(f.properties?.stop_id ?? f.properties?.StationId ?? "").trim();
-        const sco = String(f.properties?.stop_code ?? f.properties?.NextRide ?? f.properties?.PlatformID ?? "").trim();
-        const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
 
+        // Check for bus IDs first, then fall back to the train IDs (StationId / NextRide)
+        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "");
+        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? "");
+        const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
         const etaLabel =
           typeof ts === "number"
             ? new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
             : "No live ETA";
 
         let isPassed = false;
-        // Added safety checks: Only calculate if 'chosen' and 'vehicleAlong' actually exist!
-        if (ghosted && ghosted.chosen && ghosted.vehicleAlong !== undefined) {
-          try {
-            const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
-            isPassed = stopAlong < ghosted.vehicleAlong;
-          } catch (err) {
-            // If Turf.js fails to calculate the distance, ignore it instead of crashing
-            isPassed = false;
-          }
+        if (ghosted) {
+          const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
+          isPassed = stopAlong < ghosted.vehicleAlong;
         }
 
         return (
