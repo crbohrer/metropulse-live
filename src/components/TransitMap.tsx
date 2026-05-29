@@ -113,10 +113,15 @@ export function TransitMap({
     return getActiveRouteLines(routeShape, activeVehicle.direction, activeVehicle.vehicle_type);
   }, [isRouteViewActive, activeVehicle, routeShape]);
 
-  const ghosted = useMemo(
-    () => (isRouteViewActive ? buildGhostedRoute(routeLines, activeVehicle) : null),
-    [isRouteViewActive, routeLines, activeVehicle]
-  );
+  const ghosted = useMemo(() => {
+    if (!isRouteViewActive || !activeVehicle || routeLines.length === 0) return null;
+    try {
+      return buildGhostedRoute(routeLines, activeVehicle);
+    } catch (err) {
+      console.error("Turf.js failed to calculate route math. Bypassing.", err);
+      return null; // Gracefully fall back to standard non-ghosted lines!
+    }
+  }, [isRouteViewActive, routeLines, activeVehicle]);
 
   // Strictly filtered stops for the active route/direction/service.
   const stops = useMemo<GeoJSONFeature[]>(() => {
@@ -134,7 +139,8 @@ export function TransitMap({
         if (routeId === "B" && (stopDir.includes("east") || stopDir.includes("west"))) return false;
 
         // 2. Spatial filtering (Keep stops within ~80m of the line)
-        const coords = f.geometry.coordinates as [number, number];
+        const coords = f.geometry?.coordinates as [number, number] | undefined;
+        if (!coords || !Array.isArray(coords)) return false; // Safe bailout!
         const nearest = nearestOnLines(routeLines, coords);
         return nearest && nearest.distSq <= 0.0000006;
       });
@@ -142,8 +148,10 @@ export function TransitMap({
 
     return baseStops;
   }, [isRouteViewActive, routeStops, activeVehicle, routeLines]);
-  const toLatLng = (coords: LngLat[]): [number, number][] =>
-    coords.map(([lng, lat]) => [lat, lng]);
+  const toLatLng = (coords?: LngLat[] | null): [number, number][] => {
+    if (!coords || !Array.isArray(coords)) return [];
+    return coords.map(([lng, lat]) => [lat, lng]);
+  };
 
   return (
     <MapContainer
@@ -176,9 +184,10 @@ export function TransitMap({
         )}
 
       {stops.map((f, i) => {
-        const coords = f.geometry.coordinates as number[];
-        const [lng, lat] = coords;
-        if (typeof lat !== "number" || typeof lng !== "number") return null;
+          const coords = f.geometry?.coordinates as number[] | undefined;
+          if (!coords || !Array.isArray(coords)) return null; // Safe bailout!
+          const [lng, lat] = coords;
+          if (typeof lat !== "number" || typeof lng !== "number") return null;
 
         const name =
           (f.properties.stop_name as string) ||
