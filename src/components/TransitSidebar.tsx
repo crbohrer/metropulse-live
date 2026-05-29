@@ -170,6 +170,29 @@ export function TransitSidebar({
       .sort((a, b) => a.along - b.along);
   }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas]);
 
+// Background fetcher for live Light Rail and Streetcar ETAs
+  useEffect(() => {
+    if (!isRouteViewActive || !activeVehicle || upcomingStops.length === 0) return;
+
+    const type = activeVehicle.vehicle_type?.toLowerCase();
+    const isRail = type === 'rail' || type === 'streetcar' || activeVehicle.route_id.includes('A') || activeVehicle.route_id.includes('B');
+    if (!isRail) return;
+
+    // Fetch predictions for all upcoming stations in the track list
+    upcomingStops.forEach((stop) => {
+      getLiveRailEta({ stopName: stop.name, direction: activeVehicle.direction })
+        .then((res) => {
+          if (res?.ts) {
+            setRailEtas((prev) => ({
+              ...prev,
+              [stop.name]: res.ts,
+            }));
+          }
+        })
+        .catch((err) => console.error("Background rail ETA fetch failed:", err));
+    });
+  }, [activeVehicle?.id, upcomingStops.length]);
+
   return (
     <aside className="glass absolute left-4 top-4 bottom-4 z-10 flex w-[360px] flex-col rounded-2xl p-5 shadow-2xl">
       {/* Header */}
