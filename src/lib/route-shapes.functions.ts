@@ -40,20 +40,29 @@ export const getRouteGeometry = createServerFn({ method: "GET" })
     // for rail/streetcar and let the client filter by Direction + ServiceType.
     const isRail = ["A", "B", "S"].includes(routeId);
 
-        let shapeUrl = "";
-        if (isRail) {
-          // Rail and Streetcar have their own dedicated database!
-          shapeUrl = `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroRail/FeatureServer/0/query?where=1=1&outFields=*&f=geojson`;
-        } else {
-          // Buses use the bus database
-          const shapeWhere = `route_id='${routeId}'`;
-          shapeUrl = `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroBusRoutes/FeatureServer/0/query?where=${encodeURIComponent(shapeWhere)}&outFields=*&f=geojson`;
-        }
+    let shapeUrl = "";
+    if (isRail) {
+      // 1. ID TRANSLATOR: Translate Light Rail to "0" for the database
+      let queryId = routeId;
+      if (routeId === "A" || routeId === "B") queryId = "0";
+      else if (routeId === "S") queryId = "S";
+
+      // 2. STOP THE DATA FLOOD: Fetch ONLY the single track line we need!
+      const shapeWhere = `ROUTE='${queryId}'`;
+      shapeUrl = `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroRail/FeatureServer/0/query?where=${encodeURIComponent(shapeWhere)}&outFields=*&f=geojson`;
+    } else {
+      // Buses use the bus database
+      const shapeWhere = `route_id='${routeId}'`;
+      shapeUrl = `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroBusRoutes/FeatureServer/0/query?where=${encodeURIComponent(shapeWhere)}&outFields=*&f=geojson`;
+    }
+
     let stopsUrl =
       `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/BusStopsWAmenities/FeatureServer/0/query` +
       `?where=${encodeURIComponent(`Routes LIKE '%${routeId}%'`)}&outFields=*&f=geojson`;
 
     if (isRail) {
+      // Rail stations are just single coordinate points, so downloading all ~40 of them 
+      // with 1=1 is perfectly safe, lightning fast, and won't crash your browser!
       stopsUrl = `https://services2.arcgis.com/2t1927381mhTgWNC/arcgis/rest/services/ValleyMetroRailStations/FeatureServer/0/query?where=1=1&outFields=*&f=geojson`;
     }
 
