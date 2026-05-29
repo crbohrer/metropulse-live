@@ -82,8 +82,15 @@ export function TransitSidebar({
   const upcomingStops = useMemo(() => {
     if (!isRouteViewActive || !activeVehicle) return [];
     const lines = getActiveRouteLines(routeShape, activeVehicle.direction, activeVehicle.vehicle_type);
-    const ghosted = buildGhostedRoute(lines, activeVehicle);
-    const stops = filterRouteStops(routeStops, activeVehicle);
+          
+          let ghosted = null;
+          try {
+            ghosted = buildGhostedRoute(lines, activeVehicle);
+          } catch (err) {
+            // Safe bailout: If Turf.js panics on a bad shape, ignore it instead of crashing!
+          }
+          
+          const stops = filterRouteStops(routeStops, activeVehicle);
     // Add a tracker to prevent duplicate stop names in the sidebar
     const seenNames = new Set<string>();
 
