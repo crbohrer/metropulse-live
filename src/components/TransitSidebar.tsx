@@ -191,7 +191,7 @@ export function TransitSidebar({
         })
         .catch((err) => console.error("Background rail ETA fetch failed:", err));
     });
-  }, [activeVehicle?.id, upcomingStops.length]);
+  }, [activeVehicle?.id, upcomingStops]);
 
   return (
     <aside className="glass absolute left-4 top-4 bottom-4 z-10 flex w-[360px] flex-col rounded-2xl p-5 shadow-2xl">
@@ -272,7 +272,7 @@ export function TransitSidebar({
                       suppressHydrationWarning
                     >
                       {s.ts
-                        ? new Date(s.ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                        ? new Date(s.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
                         : "No live ETA"}
                     </span>
                   </button>
