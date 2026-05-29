@@ -137,14 +137,12 @@ export function getActiveRouteLines(
     const g = f.geometry;
     if (!g) continue;
     // 1. NEW DIR AND SVC LOGIC (Replace lines 139-142 with this)
-    let dir = String(f.properties?.Direction ?? f.properties?.direction ?? "").toLowerCase();
-    const routeNum = String(f.properties?.ROUTE_NUMBER ?? "").toLowerCase();
-    if (!dir && routeNum) {
-        if (routeNum.includes("north")) dir = "north";
-        if (routeNum.includes("south")) dir = "south";
-        if (routeNum.includes("east")) dir = "east";
-        if (routeNum.includes("west")) dir = "west";
-    }
+    const propsString = JSON.stringify(f.properties || {}).toLowerCase();
+    let dir = "";
+    if (propsString.includes("north")) dir = "north";
+    else if (propsString.includes("south")) dir = "south";
+    else if (propsString.includes("east")) dir = "east";
+    else if (propsString.includes("west")) dir = "west";
 
     let svc = featureServiceType(f);
     const routeName = String(f.properties?.ROUTE ?? "").toLowerCase();
