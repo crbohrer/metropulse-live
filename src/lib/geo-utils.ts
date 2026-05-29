@@ -158,7 +158,11 @@ export function getActiveRouteLines(
   if (pool.length === 0) pool = all;
 
   const target = (direction ?? "").toLowerCase();
-  if (!target) return pool.map((l) => l.line);
+  const isRail = vehicleType === "rail" || vehicleType === "streetcar";
+
+  // Bypass direction text check for trains, just draw the whole pool
+  if (!target || isRail) return pool.map((l) => l.line); 
+
   const matched = pool.filter(({ dir }) => dirMatch(dir, target));
   return (matched.length ? matched : pool).map((l) => l.line);
 }
