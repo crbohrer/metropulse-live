@@ -152,9 +152,9 @@ export function TransitSidebar({
         // 2. Rail Fallback: If no ETA found in standard feed, check if it's a train
         const type = activeVehicle.vehicle_type?.toLowerCase();
         const isRailRoute = type === 'rail' || type === 'streetcar' || activeVehicle.route_id.includes('A') || activeVehicle.route_id.includes('B');
-        
+
         if (!ts && isRailRoute) {
-          // Pull the timestamp from our background state dictionary if it exists
+          // Read the timestamp straight from your running background tracker state!
           ts = railEtas[name] || null;
         }
 
