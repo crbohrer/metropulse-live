@@ -69,6 +69,7 @@ export function TransitSidebar({
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
   const [, forceUpdate] = useState({});
+  const [railEtas, setRailEtas] = useState<Record<string, number>>({});
   const [itineraryOpen, setItineraryOpen] = useState(true);
 
   const filtered = vehicles.filter(
@@ -148,27 +149,15 @@ export function TransitSidebar({
           }
         }
 
-        // 2. Rail Fallback: If no ETA found and it's a train, fetch directly from the server function
+        // 2. Rail Fallback: If no ETA found in standard feed, check if it's a train
         const type = activeVehicle.vehicle_type?.toLowerCase();
         const isRailRoute = type === 'rail' || type === 'streetcar' || activeVehicle.route_id.includes('A') || activeVehicle.route_id.includes('B');
         
         if (!ts && isRailRoute) {
-          // Create a placeholder object reference we can mutate safely
-          const stopRef = { name, sid, lat, lng, along, ts: null as number | null };
-          
-          getLiveRailEta({ stopName: name, direction: activeVehicle.direction })
-            .then((res) => {
-              if (res?.ts) {
-                // Update our local reference
-                stopRef.ts = res.ts;
-                // Force the sidebar to re-render and display the newly fetched timestamp
-                forceUpdate({});
-              }
-            })
-            .catch((err) => console.error("Direct rail ETA tracking failed:", err));
-
-          return stopRef;
+          // Pull the timestamp from our background state dictionary if it exists
+          ts = railEtas[name] || null;
         }
+
         return { name, sid, lat, lng, along, ts };
       })
           
