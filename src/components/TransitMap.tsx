@@ -133,9 +133,9 @@ export function TransitMap({
         const coords = f.geometry.coordinates as [number, number];
         const nearest = nearestOnLines(routeLines, coords);
         
-        // 0.000005 degrees squared is roughly 200 meters. 
+        // 0.0000001 degrees squared is roughly 30 meters. 
         // Only keep stops within that distance of our drawn route line!
-        return nearest && nearest.distSq <= 0.000005;
+        return nearest && nearest.distSq <= 0.0000001;
       });
     }
 
