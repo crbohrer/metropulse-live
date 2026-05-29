@@ -63,6 +63,7 @@ export function TransitSidebar({
   routeShape,
   routeStops,
   liveEtas,
+  onSelectStop,
 }: Props) {
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
