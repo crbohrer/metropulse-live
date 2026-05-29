@@ -118,8 +118,7 @@ export function TransitMap({
     try {
       return buildGhostedRoute(routeLines, activeVehicle);
     } catch (err) {
-      console.error("Turf.js failed to calculate route math. Bypassing.", err);
-      return null; // Gracefully fall back to standard non-ghosted lines!
+      return null; // Gracefully fall back to standard lines if math fails
     }
   }, [isRouteViewActive, routeLines, activeVehicle]);
 
