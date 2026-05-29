@@ -136,10 +136,20 @@ export function getActiveRouteLines(
   for (const f of routeShape.features) {
     const g = f.geometry;
     if (!g) continue;
-    const dir = String(
-      f.properties?.Direction ?? f.properties?.direction ?? ""
-    ).toLowerCase();
-    const svc = featureServiceType(f);
+    // 1. NEW DIR AND SVC LOGIC (Replace lines 139-142 with this)
+    let dir = String(f.properties?.Direction ?? f.properties?.direction ?? "").toLowerCase();
+    const routeNum = String(f.properties?.ROUTE_NUMBER ?? "").toLowerCase();
+    if (!dir && routeNum) {
+        if (routeNum.includes("north")) dir = "north";
+        if (routeNum.includes("south")) dir = "south";
+        if (routeNum.includes("east")) dir = "east";
+        if (routeNum.includes("west")) dir = "west";
+    }
+
+    let svc = featureServiceType(f);
+    const routeName = String(f.properties?.ROUTE ?? "").toLowerCase();
+    if (routeName) svc += " " + routeName;
+
     if (g.type === "LineString") {
       all.push({ line: g.coordinates as LngLat[], dir, svc });
     } else if (g.type === "MultiLineString") {
@@ -158,11 +168,9 @@ export function getActiveRouteLines(
   if (pool.length === 0) pool = all;
 
   const target = (direction ?? "").toLowerCase();
-  const isRail = vehicleType === "rail" || vehicleType === "streetcar";
 
-  // Bypass direction text check for trains, just draw the whole pool
-  if (!target || isRail) return pool.map((l) => l.line); 
-
+  // We now have accurate train directions, so apply the filter to everything!
+  if (!target) return pool.map((l) => l.line); 
   const matched = pool.filter(({ dir }) => dirMatch(dir, target));
   return (matched.length ? matched : pool).map((l) => l.line);
 }
