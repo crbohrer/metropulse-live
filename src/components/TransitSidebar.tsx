@@ -133,22 +133,37 @@ export function TransitSidebar({
         ];
 
         const sid = String(idCandidates[0] ?? name);
-        let ts: number | null = null;
-
-        // Check raw keys, trimmed string keys, and padded keys for rail alignment
-        for (const c of idCandidates) {
-          if (c == null) continue;
-          const cleanKey = String(c).trim();
-          const paddedKey = cleanKey.padStart(4, '0'); // Catch leading zero mismatches (e.g., '104' vs '0104')
-
-          const match = liveEtas?.[cleanKey] ?? liveEtas?.[paddedKey] ?? liveEtas?.[String(c)];
-          if (typeof match === "number") {
-            ts = match;
-            break;
+        let ts : number | null = null ;
+        
+        // 1. Try standard bus tracking dictionary first
+        for ( const c of idCandidates ) {
+          if ( c == null ) continue ;
+          const cleanKey = String ( c ) . trim ( ) ;
+          const paddedKey = cleanKey . padStart ( 4 , '0' ) ;
+          const match = liveEtas ?. [ cleanKey ] ?? liveEtas ?. [ paddedKey ] ?? liveEtas ?. [ String ( c ) ] ;
+          if ( typeof match === "number" ) {
+            ts = match ;
+            break ;
           }
         }
 
-        return { name, sid, lat, lng, along, ts };
+        // 2. Rail Fallback: If no ETA found and it's a train, fetch directly from the server function
+        const type = activeVehicle.vehicle_type?.toLowerCase();
+        const isRailRoute = type === 'rail' || type === 'streetcar' || activeVehicle.route_id.includes('A') || activeVehicle.route_id.includes('B');
+        
+        if (!ts && isRailRoute) {
+          // Fire off the secure background server request to Valley Metro's NextRide API
+          getLiveRailEta({ stopName: name, direction: activeVehicle.direction })
+            .then((res) => {
+              if (res?.ts) {
+                // Mutate the memoized item directly when the promise resolves to trigger the layout update
+                s.ts = res.ts;
+              }
+            })
+            .catch((err) => console.error("Direct rail ETA tracking failed:", err));
+        }
+
+        return { name , sid , lat , lng , along , ts } ;
       })
       .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null } => {
         if (!x) return false;
