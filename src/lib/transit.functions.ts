@@ -209,3 +209,48 @@ export const getLiveVehicles = createServerFn({ method: "GET" }).handler(
     }
   }
 );
+
+
+
+// Dictionary mapping physical station names to Valley Metro's 5-digit NextRide platform codes
+export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?: string; northbound?: string; southbound?: string }> = {
+  "Veterans Way/College Ave": { eastbound: "10022", westbound: "10023" },
+  "Mill Ave/3rd St": { eastbound: "10020", westbound: "10021" },
+  "Center Pkwy/Washington": { eastbound: "10018", westbound: "10019" },
+  "University Dr/Rural": { eastbound: "10024", westbound: "10025" },
+  "Dorsey Ln/Apache": { eastbound: "10026", westbound: "10027" },
+  "McClintock Dr/Apache": { eastbound: "10028", westbound: "10029" },
+  "Smith-Martin/Apache": { eastbound: "10030", westbound: "10031" },
+  "Price-101 Fwy/Apache": { eastbound: "10032", westbound: "10033" },
+};
+
+/**
+ * Direct fetcher that hits Valley Metro's NextRide API for exact rail platform predictions
+ */
+export async function fetchLiveRailEta(stopName: string, direction: string): Promise<number | null> {
+  try {
+    const cleanName = stopName.replace(" Station", "").trim();
+    const station = RAIL_STATION_CODES[cleanName];
+    if (!station) return null;
+
+    // Match direction mapping string cleanly
+    const dirKey = direction.toLowerCase() as 'eastbound' | 'westbound' | 'northbound' | 'southbound';
+    const stopCode = station[dirKey];
+    if (!stopCode) return null;
+
+    // Hit the live NextRide JSON endpoint directly
+    const response = await fetch(`https://api.valleymetro.org/nextride/v1/predictions/stop/${stopCode}`);
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    
+    // Grab the ETA timestamp of the very next approaching train payload
+    if (data && data.predictions && data.predictions.length > 0) {
+      const nextArrival = data.predictions[0].estimated_arrival_time;
+      return typeof nextArrival === "number" ? nextArrival : Date.parse(nextArrival);
+    }
+  } catch (error) {
+    console.error("Error fetching direct rail platform ETA:", error);
+  }
+  return null;
+}
