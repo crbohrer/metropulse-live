@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
 import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
 import { getLiveAlerts } from "@/lib/transit.functions";
+import { fetchLiveRailEta } from "../lib/transit.functions";
 import {
   alongDistance,
   buildGhostedRoute,
