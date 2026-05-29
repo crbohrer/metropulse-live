@@ -93,8 +93,16 @@ export function TransitSidebar({
         const [lng, lat] = coords;
         if (typeof lat !== "number" || typeof lng !== "number") return null;
 
-        const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
-        if (ghosted && along < ghosted.vehicleAlong) return null;
+        let isPassed = false;
+        if (ghosted && ghosted.chosen && ghosted.vehicleAlong !== undefined) {
+          try {
+            const along = alongDistance(ghosted.chosen, [lng, lat]);
+            if (along < ghosted.vehicleAlong) isPassed = true;
+          } catch (err) {
+            // Safe bailout: Ignore Turf.js errors in the sidebar!
+          }
+        }
+        if (isPassed) return null;
 
         const name =
           (f.properties.stop_name as string) ||
