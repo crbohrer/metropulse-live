@@ -272,7 +272,7 @@ export function TransitSidebar({
                       suppressHydrationWarning
                     >
                       {s.ts
-                        ? new Date(s.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                        ? new Date(s.ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
                         : "No live ETA"}
                     </span>
                   </button>
