@@ -194,7 +194,10 @@ export function filterRouteStops(
     if (routes && !routeRe.test(routes)) return false;
 
     const stopDir = String(f.properties.Direction ?? "");
-    if (vDir && stopDir && !dirStrict(stopDir, vDir)) return false;
+        const isRail = activeVehicle.vehicle_type === "rail" || activeVehicle.vehicle_type === "streetcar";
+
+        // Bypass text-based direction filtering for train stops
+        if (!isRail && vDir && stopDir && !dirStrict(stopDir, vDir)) return false;
 
     const svc = String(
       f.properties.ServiceType ?? f.properties.servicetype ?? ""
