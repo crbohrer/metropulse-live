@@ -219,9 +219,35 @@ export function TransitMap({
           "Transit Stop";
       
         // Check for bus IDs first, then fall back to the train IDs (StationId / NextRide / PlatformID)
-        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "").trim();
-        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? f.properties.PlatformID ?? "").trim();
-        const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
+       // 1. BRUTE FORCE ETA MATCH: Check every single property on this station
+        let ts: number | null = null;
+        for (const val of Object.values(f.properties || {})) {
+          if (val === null || val === undefined) continue;
+          const strVal = String(val).trim();
+          
+          if (strVal.length >= 3 && liveEtas?.[strVal] !== undefined) {
+            ts = liveEtas[strVal];
+            break;
+          }
+        }
+
+        // 2. DEBUGGING PROBE: If we STILL can't find it, log it to the console!
+        const isRail = activeVehicle?.vehicle_type === "rail" || activeVehicle?.vehicle_type === "streetcar";
+        if (isRail && ts === null && liveEtas && Object.keys(liveEtas).length > 0) {
+            console.log(`Missing ETA for ${name}. Database provided:`, f.properties);
+        }
+
+        // 3. KEEP THIS EXACTLY AS IT WAS
+        const etaLabel =
+          typeof ts === "number"
+            ? new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+            : "No live ETA";
+
+        let isPassed = false;
+        if (ghosted) {
+          const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
+          isPassed = stopAlong < ghosted.vehicleAlong;
+        }
         const etaLabel =
           typeof ts === "number"
             ? new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
