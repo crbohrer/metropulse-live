@@ -26,6 +26,7 @@ interface Props {
   routeShape: RouteGeoJSON | null;
   routeStops: RouteGeoJSON | null;
   liveEtas: Record<string, number> | null;
+  onSelectStop: (lat: number, lng: number) => void;
 }
 
 
