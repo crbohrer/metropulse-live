@@ -84,30 +84,40 @@ export function TransitSidebar({
     const lines = getActiveRouteLines(routeShape, activeVehicle.direction, activeVehicle.vehicle_type);
     const ghosted = buildGhostedRoute(lines, activeVehicle);
     const stops = filterRouteStops(routeStops, activeVehicle);
+    // Add a tracker to prevent duplicate stop names in the sidebar
+    const seenNames = new Set<string>();
+
     const items = stops
       .map((f) => {
         const coords = (f.geometry?.coordinates as number[]) ?? [];
         const [lng, lat] = coords;
         if (typeof lat !== "number" || typeof lng !== "number") return null;
+
         const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
         if (ghosted && along < ghosted.vehicleAlong) return null;
+
         const name =
           (f.properties.stop_name as string) ||
           (f.properties.StationName as string) ||
           (f.properties.Stop_Name as string) ||
           (f.properties.StopName as string) ||
           "Transit Stop";
+
         const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "");
         const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? "");
-        const ts = liveEtas?.[sid] ?? liveEtas?.[sco];
+        const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
 
-        // THE SILVER BULLET FILTER: If Valley Metro didn't provide a live ETA, 
-        // it means this is the wrong side of the track (or an unused stop). Hide it!
-        if (typeof ts !== "number") return null;
-
+        // We removed the strict ETA filter here so stops always show up!
         return { name, sid, sco, along, ts };
       })
-      .filter((x): x is { name: string; sid: string; sco: string; along: number; ts: number | null } => !!x)
+      .filter((x): x is { name: string; sid: string; sco: string; along: number; ts: number | null } => {
+        if (!x) return false;
+        
+        // DEDUPLICATOR: Only allow one stop per name into the list
+        if (seenNames.has(x.name)) return false;
+        seenNames.add(x.name);
+        return true;
+      })
       .sort((a, b) => a.along - b.along);
     return items;
   }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas]);
