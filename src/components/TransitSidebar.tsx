@@ -97,10 +97,15 @@ export function TransitSidebar({
           (f.properties.Stop_Name as string) ||
           (f.properties.StopName as string) ||
           "Transit Stop";
-        const sid = String(f.properties.stop_id ?? "");
-        const sco = String(f.properties.stop_code ?? "");
+        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "");
+        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? "");
         const ts = liveEtas?.[sid] ?? liveEtas?.[sco];
-        return { name, sid, sco, along, ts: typeof ts === "number" ? ts : null };
+
+        // THE SILVER BULLET FILTER: If Valley Metro didn't provide a live ETA, 
+        // it means this is the wrong side of the track (or an unused stop). Hide it!
+        if (typeof ts !== "number") return null;
+
+        return { name, sid, sco, along, ts };
       })
       .filter((x): x is { name: string; sid: string; sco: string; along: number; ts: number | null } => !!x)
       .sort((a, b) => a.along - b.along);
