@@ -167,8 +167,6 @@ export function TransitSidebar({
         seenNames.add(x.name);
         return true;
       })
-      // Replace your current sort block:
-      .sort((a, b) => a.along - b.along);
 
       // With this property sequence fallback version:
       .sort((a, b) => {
