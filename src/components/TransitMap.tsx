@@ -217,10 +217,10 @@ export function TransitMap({
           (f.properties.StopName as string) ||
           (f.properties.STOPNAME as string) ||
           "Transit Stop";
-
-        // Check for bus IDs first, then fall back to the train IDs (StationId / NextRide)
-        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "");
-        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? "");
+      
+        // Check for bus IDs first, then fall back to the train IDs (StationId / NextRide / PlatformID)
+        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "").trim();
+        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? f.properties.PlatformID ?? "").trim();
         const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
         const etaLabel =
           typeof ts === "number"
