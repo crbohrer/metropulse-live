@@ -168,7 +168,7 @@ export function TransitSidebar({
         return true;
       })
       .sort((a, b) => a.along - b.along);
-  }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas]);
+  }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas, railEtas]);
 
 // Background fetcher for live Light Rail and Streetcar ETAs
   useEffect(() => {
@@ -177,6 +177,9 @@ export function TransitSidebar({
     const type = activeVehicle.vehicle_type?.toLowerCase();
     const isRail = type === 'rail' || type === 'streetcar' || activeVehicle.route_id.includes('A') || activeVehicle.route_id.includes('B');
     if (!isRail) return;
+
+    // CLEAR OLD DATA: Clear the dictionary so old times drop instantly
+    setRailEtas({});
 
     // Fetch predictions for all upcoming stations in the track list
     upcomingStops.forEach((stop) => {
@@ -191,8 +194,7 @@ export function TransitSidebar({
         })
         .catch((err) => console.error("Background rail ETA fetch failed:", err));
     });
-  }, [activeVehicle?.id, upcomingStops]);
-
+  }, [activeVehicle?.id]); // Watch the specific vehicle ID instead of the full list reference to avoid rendering loops
   return (
     <aside className="glass absolute left-4 top-4 bottom-4 z-10 flex w-[360px] flex-col rounded-2xl p-5 shadow-2xl">
       {/* Header */}
