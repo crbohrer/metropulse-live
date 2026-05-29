@@ -223,10 +223,23 @@ export function TransitMap({
           (f.properties.STOPNAME as string) ||
           "Transit Stop";
 
-        // Check for bus IDs first, then fall back to the train IDs (StationId / NextRide)
-        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "");
-        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? "");
-        const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
+        // Rail/Streetcar stops expose StationId/NextRide/PlatformID instead of stop_id/stop_code.
+        const idCandidates = [
+          f.properties.stop_id,
+          f.properties.stop_code,
+          f.properties.StationId,
+          f.properties.NextRide,
+          f.properties.PlatformID,
+          f.properties.PlatformId,
+          f.properties.platform_id,
+        ];
+        const sid = String(idCandidates[0] ?? "");
+        let ts: number | null = null;
+        for (const c of idCandidates) {
+          if (c == null) continue;
+          const v = liveEtas?.[String(c)];
+          if (typeof v === "number") { ts = v; break; }
+        }
         const etaLabel =
           typeof ts === "number"
             ? new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
