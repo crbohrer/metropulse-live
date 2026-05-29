@@ -169,11 +169,17 @@ export function TransitMap({
 
       {ghosted ? (
           <>
-            {routeLines.map((line, i) => i === ghosted.lineIndex ? null : (
+            {routeLines.map((line, i) => i === ghosted.lineIndex || !line || line.length === 0 ? null : (
               <Polyline key={`other-${shapeKey}-${i}`} positions={toLatLng(line)} pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }} />
             ))}
-            <Polyline key={`passed-${shapeKey}`} positions={toLatLng(ghosted.passed)} pathOptions={{ color: activeColor, weight: 4, opacity: 0.3 }} />
-            <Polyline key={`upcoming-${shapeKey}`} positions={toLatLng(ghosted.upcoming)} pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }} />
+            
+            {/* Only render these lines if Turf.js actually returned coordinates! */}
+            {ghosted.passed && ghosted.passed.length > 0 && (
+              <Polyline key={`passed-${shapeKey}`} positions={toLatLng(ghosted.passed)} pathOptions={{ color: activeColor, weight: 4, opacity: 0.3 }} />
+            )}
+            {ghosted.upcoming && ghosted.upcoming.length > 0 && (
+              <Polyline key={`upcoming-${shapeKey}`} positions={toLatLng(ghosted.upcoming)} pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }} />
+            )}
           </>
         ) : (
           <>
