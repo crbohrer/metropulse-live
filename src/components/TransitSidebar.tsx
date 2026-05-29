@@ -103,11 +103,21 @@ export function TransitSidebar({
           (f.properties.StopName as string) ||
           "Transit Stop";
 
-        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "");
-        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? "");
+        // 1. ETA ID CATCH-ALL (Added PlatformID and .trim() to catch feed quirks)
+        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "").trim();
+        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? f.properties.PlatformID ?? "").trim();
         const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
 
-        // We removed the strict ETA filter here so stops always show up!
+        // 2. HARDCODED ROUTE A & B FILTER
+        const routeId = activeVehicle?.route_id?.toUpperCase();
+        const stopDir = String(f.properties.Direction ?? f.properties.direction ?? "").toLowerCase();
+        
+        // Route A is East/West only. Hide any North/South stops.
+        if (routeId === "A" && (stopDir.includes("north") || stopDir.includes("south"))) return null;
+        
+        // Route B is North/South only. Hide any East/West stops.
+        if (routeId === "B" && (stopDir.includes("east") || stopDir.includes("west"))) return null;
+
         return { name, sid, sco, along, ts };
       })
       .filter((x): x is { name: string; sid: string; sco: string; along: number; ts: number | null } => {
