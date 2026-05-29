@@ -104,21 +104,21 @@ export function TransitSidebar({
         }
         if (isPassed) return null;
 
-        const name =
-          (f.properties.stop_name as string) ||
-          (f.properties.StationName as string) ||
-          (f.properties.Stop_Name as string) ||
-          (f.properties.StopName as string) ||
+        const name = 
+          (f.properties?.stop_name as string) || 
+          (f.properties?.StationName as string) || 
+          (f.properties?.Stop_Name as string) || 
+          (f.properties?.StopName as string) || 
           "Transit Stop";
 
         // Check for bus IDs first, then fall back to the train IDs (StationId / NextRide / PlatformID)
-        const sid = String(f.properties.stop_id ?? f.properties.StationId ?? "").trim();
-        const sco = String(f.properties.stop_code ?? f.properties.NextRide ?? f.properties.PlatformID ?? "").trim();
+        const sid = String(f.properties?.stop_id ?? f.properties?.StationId ?? "").trim();
+        const sco = String(f.properties?.stop_code ?? f.properties?.NextRide ?? f.properties?.PlatformID ?? "").trim();
         const ts = liveEtas?.[sid] ?? liveEtas?.[sco] ?? null;
 
         // 2. HARDCODED ROUTE A & B FILTER
         const routeId = activeVehicle?.route_id?.toUpperCase();
-        const stopDir = String(f.properties.Direction ?? f.properties.direction ?? "").toLowerCase();
+        const stopDir = String(f.properties?.Direction ?? f.properties?.direction ?? "").toLowerCase();
         
         // Route A is East/West only. Hide any North/South stops.
         if (routeId === "A" && (stopDir.includes("north") || stopDir.includes("south"))) return null;
