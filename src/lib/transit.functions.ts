@@ -19,42 +19,37 @@ interface Feed {
 
 // Replace the old fetchLiveAlerts with this:
 // Replace the old getLiveAlerts with this:
-export const getLiveAlerts = createServerFn({ method: "GET" }).handler(async () => {
-  const key = process.env.VALLEY_METRO_API_KEY; 
-  
-  if (!key) {
-    console.error("Missing VALLEY_METRO_API_KEY");
-    return [];
-  }
-
-  const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?apiKey=${key}&asJson=true`;
+export async function getLiveAlerts() {
+  // Use a public proxy fallback to let the user's browser pull the alerts directly
+  const targetUrl = "https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?asJson=true";
+  const proxyUrl = `https://cors-anywhere.herokuapp.com/${targetUrl}`;
   
   try {
-    const response = await fetch(url, { headers: { accept: "application/json" } });
+    let response = await fetch(targetUrl, { headers: { accept: "application/json" } }).catch(() => null);
+    if (!response || !response.ok) {
+      response = await fetch(proxyUrl, { headers: { accept: "application/json" } });
+    }
     if (!response.ok) throw new Error("Failed to fetch alerts");
     
     const data = await response.json();
-    
-    // Extract alerts from the Mecatran JSON structure
     return data.entity.map((e: any) => {
       const header = e.alert.headerText?.translation?.[0]?.text || "Transit Alert";
       const desc = e.alert.descriptionText?.translation?.[0]?.text || "";
       const route = e.alert.informedEntity?.[0]?.routeId || "System";
-
       return {
         id: e.id,
-        severity: "warning", 
+        severity: "warning",
         route: route,
         title: header,
         description: desc,
         time: "Live"
       };
-    }); // <--- THIS closes the .map()
+    });
   } catch (error) {
-    console.error("Error fetching alerts:", error);
+    console.error("Error fetching alerts on client:", error);
     return [];
   }
-}); // <--- THIS closes the .handler()
+}
 
 // Valley Metro classification by route_id.
 // Light Rail = "RAIL" / "RL"; Streetcar = "SMC" / "TS"; everything else = bus.
