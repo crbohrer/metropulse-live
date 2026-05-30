@@ -198,13 +198,12 @@ export function TransitSidebar({
     });
   }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas, railEtas]);
 
-// Background fetcher for live Light Rail and Streetcar ETAs
+  // Background fetcher for live Light Rail and Streetcar ETAs
   useEffect(() => {
+    // 1. Wait until the active vehicle is selected AND the upcoming stops list actually populates
     if (!isRouteViewActive || !activeVehicle || upcomingStops.length === 0) return;
 
     const type = activeVehicle.vehicle_type?.toLowerCase();
-    
-    // Bulletproof check: convert to uppercase and look for ROUTE A or ROUTE B explicitly
     const isRail = 
       type === 'rail' || 
       type === 'streetcar' || 
@@ -213,10 +212,10 @@ export function TransitSidebar({
       
     if (!isRail) return;
 
-    // CLEAR OLD DATA: Clear the dictionary so old times drop instantly
+    // Clear the dictionary so old train times drop instantly when switching routes
     setRailEtas({});
 
-    // Fetch predictions for all upcoming stations in the track list
+    // 2. Map through the populated list of stations and grab the real-time metrics
     upcomingStops.forEach((stop) => {
       getLiveRailEta({ stopName: stop.name, direction: activeVehicle.direction })
         .then((res) => {
@@ -229,7 +228,8 @@ export function TransitSidebar({
         })
         .catch((err) => console.error("Background rail ETA fetch failed:", err));
     });
-  }, [activeVehicle?.id]); // Watch the specific vehicle ID instead of the full list reference to avoid rendering loops
+    // Add upcomingStops.length here so the hook re-fires the millisecond the stops populate!
+  }, [activeVehicle?.id, upcomingStops.length, isRouteViewActive]);
   return (
     <aside className="glass absolute left-4 top-4 bottom-4 z-10 flex w-[360px] flex-col rounded-2xl p-5 shadow-2xl">
       {/* Header */}
