@@ -212,16 +212,19 @@ export const getLiveVehicles = createServerFn({ method: "GET" }).handler(
 
 
 
-// Dictionary mapping physical station names to Valley Metro's 5-digit NextRide platform codes
 export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?: string; northbound?: string; southbound?: string }> = {
-  "Veterans Way/College Ave": { eastbound: "10022", westbound: "10023" },
-  "Mill Ave/3rd St": { eastbound: "10020", westbound: "10021" },
-  "Center Pkwy/Washington": { eastbound: "10018", westbound: "10019" },
-  "University Dr/Rural": { eastbound: "10024", westbound: "10025" },
-  "Dorsey Ln/Apache": { eastbound: "10026", westbound: "10027" },
-  "McClintock Dr/Apache": { eastbound: "10028", westbound: "10029" },
-  "Smith-Martin/Apache": { eastbound: "10030", westbound: "10031" },
-  "Price-101 Fwy/Apache": { eastbound: "10032", westbound: "10033" },
+  "Dorsey Ln / Apache Blvd": { eastbound: "9027", westbound: "9031" },
+  "University Dr / Rural Rd": { eastbound: "9025", westbound: "9030" },
+  "Veterans Way / College Ave": { eastbound: "9022", westbound: "9033" },
+  "Mill Ave / 3rd St": { eastbound: "9020", westbound: "9036" },
+  "Center Pkwy / Washington": { eastbound: "9018", westbound: "9038" },
+  "Priest Dr / Washington St": { eastbound: "9016", westbound: "9041" },
+  "50th St / Washington St": { eastbound: "9014", westbound: "9043" },
+  "44th St / Washington": { eastbound: "9012", westbound: "9046" },
+  "38th St / Washington": { eastbound: "9010", westbound: "9047" },
+  "24th St / Jefferson": { westbound: "9050" },
+  "12th St / Jefferson": { westbound: "9052" },
+  "3rd St / Jefferson": { westbound: "9054" },
 };
 
 /**
