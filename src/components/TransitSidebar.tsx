@@ -160,7 +160,11 @@ export function TransitSidebar({
 
         // 2. Rail Fallback: If no ETA found in standard feed, check if it's a train
         const type = activeVehicle.vehicle_type?.toLowerCase();
-        const isRailRoute = type === 'rail' || type === 'streetcar' || activeVehicle.route_id.includes('A') || activeVehicle.route_id.includes('B');
+        const isRailRoute = 
+          type === 'rail' || 
+          type === 'streetcar' || 
+          activeVehicle.route_id.toUpperCase().includes('ROUTE A') || 
+          activeVehicle.route_id.toUpperCase().includes('ROUTE B');
 
         if (!ts && isRailRoute) {
           // Read the timestamp straight from your running background tracker state!
@@ -199,7 +203,14 @@ export function TransitSidebar({
     if (!isRouteViewActive || !activeVehicle || upcomingStops.length === 0) return;
 
     const type = activeVehicle.vehicle_type?.toLowerCase();
-    const isRail = type === 'rail' || type === 'streetcar' || activeVehicle.route_id.includes('A') || activeVehicle.route_id.includes('B');
+    
+    // Bulletproof check: convert to uppercase and look for ROUTE A or ROUTE B explicitly
+    const isRail = 
+      type === 'rail' || 
+      type === 'streetcar' || 
+      activeVehicle.route_id.toUpperCase().includes('ROUTE A') || 
+      activeVehicle.route_id.toUpperCase().includes('ROUTE B');
+      
     if (!isRail) return;
 
     // CLEAR OLD DATA: Clear the dictionary so old times drop instantly
