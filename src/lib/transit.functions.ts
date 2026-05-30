@@ -265,4 +265,3 @@ export async function getLiveRailEta(data: { stopName: string; direction: string
   }
   return { ts: null };
  }
-});
