@@ -137,12 +137,21 @@ export function TransitSidebar({
         const sid = String(idCandidates[0] ?? name);
         let ts : number | null = null ;
         
-        // 1. Try standard bus tracking dictionary first
+        // 1. Try standard bus/rail tracking dictionary first
         for ( const c of idCandidates ) {
           if ( c == null ) continue ;
           const cleanKey = String ( c ) . trim ( ) ;
+          
+          // Strip out any leading zeros if the feed keys are raw numbers (e.g., '09022' -> '9022')
+          const unpaddedKey = cleanKey.replace(/^0+/, ''); 
           const paddedKey = cleanKey . padStart ( 4 , '0' ) ;
-          const match = liveEtas ?. [ cleanKey ] ?? liveEtas ?. [ paddedKey ] ?? liveEtas ?. [ String ( c ) ] ;
+
+          const match = 
+            liveEtas ?. [ cleanKey ] ?? 
+            liveEtas ?. [ unpaddedKey ] ?? 
+            liveEtas ?. [ paddedKey ] ?? 
+            liveEtas ?. [ String ( c ) ] ;
+
           if ( typeof match === "number" ) {
             ts = match ;
             break ;
