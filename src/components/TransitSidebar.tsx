@@ -142,7 +142,7 @@ export function TransitSidebar({
           if ( c == null ) continue ;
           const cleanKey = String ( c ) . trim ( ) ;
           
-          // Strip out any leading zeros if the feed keys are raw numbers (e.g., '09022' -> '9022')
+          // Strip out leading zeros to match your GTFS feed updates (e.g., '09022' -> '9022')
           const unpaddedKey = cleanKey.replace(/^0+/, ''); 
           const paddedKey = cleanKey . padStart ( 4 , '0' ) ;
 
@@ -156,6 +156,12 @@ export function TransitSidebar({
             ts = match ;
             break ;
           }
+        }
+
+        // 2. Clear out the broken getLiveRailEta execution loop entirely!
+        if (!ts) {
+          // Fall back to matching by station name arrays if available in liveEtas
+          ts = liveEtas?.[name] || null;
         }
 
         // 2. Rail Fallback: If no ETA found in standard feed, check if it's a train
@@ -182,54 +188,30 @@ export function TransitSidebar({
       })
 
       // With this property sequence fallback version:
+      // Cleaned up sorting block:
       .sort((a, b) => {
-      // Extract sequence indices if available in your data structure properties
-      const seqA = a.properties?.stop_sequence ?? a.properties?.Sequence ?? a.properties?.SequenceNum ?? 0;
-      const seqB = b.properties?.stop_sequence ?? b.properties?.Sequence ?? b.properties?.SequenceNum ?? 0;
-  
-      if (seqA !== 0 || seqB !== 0) {
-        // If traveling in reverse direction, invert the list order
-        const isReverse = activeVehicle.direction?.toLowerCase().includes('west') || activeVehicle.direction?.toLowerCase().includes('south');
-        return isReverse ? seqB - seqA : seqA - seqB;
-      }
-  
-      // Fallback to spatial tracking if sequences aren't present
-      return a.along - b.along;
-    });
+        const seqA = a.properties?.stop_sequence ?? a.properties?.Sequence ?? a.properties?.SequenceNum ?? 0;
+        const seqB = b.properties?.stop_sequence ?? b.properties?.Sequence ?? b.properties?.SequenceNum ?? 0;
+    
+        if (seqA !== 0 || seqB !== 0) {
+          // Standardize direction sorting: Eastbound/Northbound should count upward, Westbound/Southbound flips
+          const isReverse = activeVehicle.direction?.toLowerCase().includes('west') || activeVehicle.direction?.toLowerCase().includes('south');
+          return isReverse ? seqB - seqA : seqA - seqB;
+        }
+    
+        return a.along - b.along;
+      });
   }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas, railEtas]);
 
-  // Background fetcher for live Light Rail and Streetcar ETAs
+  // Fetch active transit alerts on load and refresh when 'last' changes
   useEffect(() => {
-    // 1. Wait until the active vehicle is selected AND the upcoming stops list actually populates
-    if (!isRouteViewActive || !activeVehicle || upcomingStops.length === 0) return;
+    getLiveAlerts()
+      .then((data) => {
+        if (data) setLiveAlerts(data);
+      })
+      .catch((err) => console.error("Alert layout stream failed:", err));
+  }, [last]);
 
-    const type = activeVehicle.vehicle_type?.toLowerCase();
-    const isRail = 
-      type === 'rail' || 
-      type === 'streetcar' || 
-      activeVehicle.route_id.toUpperCase().includes('ROUTE A') || 
-      activeVehicle.route_id.toUpperCase().includes('ROUTE B');
-      
-    if (!isRail) return;
-
-    // Clear the dictionary so old train times drop instantly when switching routes
-    setRailEtas({});
-
-    // 2. Map through the populated list of stations and grab the real-time metrics
-    upcomingStops.forEach((stop) => {
-      getLiveRailEta({ stopName: stop.name, direction: activeVehicle.direction })
-        .then((res) => {
-          if (res?.ts) {
-            setRailEtas((prev) => ({
-              ...prev,
-              [stop.name]: res.ts,
-            }));
-          }
-        })
-        .catch((err) => console.error("Background rail ETA fetch failed:", err));
-    });
-    // Add upcomingStops.length here so the hook re-fires the millisecond the stops populate!
-  }, [activeVehicle?.id, upcomingStops.length, isRouteViewActive]);
   return (
     <aside className="glass absolute left-4 top-4 bottom-4 z-10 flex w-[360px] flex-col rounded-2xl p-5 shadow-2xl">
       {/* Header */}
