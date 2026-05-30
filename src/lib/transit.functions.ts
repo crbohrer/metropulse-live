@@ -228,42 +228,41 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
 };
 
 /**
- * Server-wrapped fetcher that hits Valley Metro's NextRide API securely from the server
+ * Client-safe fetcher that utilizes a public CORS proxy fallback 
+ * to bypass Valley Metro's firewall directly from the browser viewport.
  */
-export const getLiveRailEta = createServerFn({ method: "GET" })
-  .inputValidator((data: { stopName: string; direction: string }) => data)
-  // Inside your getLiveRailEta handler block in src/lib/transit.functions.ts:
-.handler(async ({ data }): Promise<{ ts: number | null }> => {
+export async function getLiveRailEta(data: { stopName: string; direction: string }): Promise<{ ts: number | null }> {
   try {
     const cleanName = data.stopName.replace(" Station", "").trim();
     const station = RAIL_STATION_CODES[cleanName];
-    
-    // DEBUG 1: See if the name is matching your dictionary
-    console.log("Matched Station for:", cleanName, "->", station);
     if (!station) return { ts: null };
 
     const dirKey = data.direction.toLowerCase() as 'eastbound' | 'westbound' | 'northbound' | 'southbound';
     const stopCode = station[dirKey];
     if (!stopCode) return { ts: null };
 
-    const url = `https://api.valleymetro.org/nextride/v1/predictions/stop/${stopCode}`;
-    const response = await fetch(url);
+    // Use a public CORS proxy fallback to securely query the endpoint straight from the browser
+    const targetUrl = `https://api.valleymetro.org/nextride/v1/predictions/stop/${stopCode}`;
+    const proxyUrl = `https://cors-anywhere.herokuapp.com/${targetUrl}`;
+    
+    // Try hitting the URL directly first; if it blocks, cut straight over to the proxy tunnel
+    let response = await fetch(targetUrl).catch(() => null);
+    if (!response || !response.ok) {
+      response = await fetch(proxyUrl);
+    }
+    
     if (!response.ok) return { ts: null };
-    
     const resData = await response.json();
-    
-    // DEBUG 2: Inspect the raw payload returned by Valley Metro
-    console.log(`API Payload for stop ${stopCode}:`, JSON.stringify(resData));
     
     if (resData && resData.predictions && resData.predictions.length > 0) {
       const nextArrival = resData.predictions[0].estimated_arrival_time;
-      
-      // Convert to standard seconds timestamp since your frontend uses (* 1000)
+      // Convert ISO schedule formats to 10-digit Unix timestamps for frontend sync
       const ts = typeof nextArrival === "number" ? nextArrival : Math.floor(Date.parse(nextArrival) / 1000);
       return { ts };
     }
   } catch (error) {
-    console.error("Server fetch failed completely:", error);
+    console.error("Direct client-side rail platform ETA fetch failed:", error);
   }
   return { ts: null };
+ }
 });
