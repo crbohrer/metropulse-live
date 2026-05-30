@@ -104,16 +104,12 @@ export function TransitSidebar({
         const [lng, lat] = coords;
         if (typeof lat !== "number" || typeof lng !== "number") return null;
 
-        // 1. TIGHTENED SPATIAL FILTER: Max distance drop from ~50m to ~15m
         if (lines.length > 0) {
           const nearest = nearestOnLines(lines, [lng, lat]);
-          // Dropping distSq threshold from 0.0000002 down to 0.00000004
           if (!nearest || nearest.distSq > 0.00000004) return null;
         }
 
         const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
-
-        // Strict upcoming: skip stops the vehicle has already passed.
         if (ghosted && along < ghosted.vehicleAlong) return null;
 
         const name =
@@ -123,7 +119,6 @@ export function TransitSidebar({
           f.properties?.StopName ||
           "Transit Stop";
 
-        // 2. OVERHAULED BULLETPROOF ETA LOOKUP
         const idCandidates = [
           f.properties?.stop_id,
           f.properties?.stop_code,
@@ -135,73 +130,54 @@ export function TransitSidebar({
         ];
 
         const sid = String(idCandidates[0] ?? name);
-        let ts : number | null = null ;
+        let ts: number | null = null;
         
-        // 1. Try standard bus/rail tracking dictionary first
-        for ( const c of idCandidates ) {
-          if ( c == null ) continue ;
-          const cleanKey = String ( c ) . trim ( ) ;
-          
-          // Strip out leading zeros to match your GTFS feed updates (e.g., '09022' -> '9022')
-          const unpaddedKey = cleanKey.replace(/^0+/, ''); 
-          const paddedKey = cleanKey . padStart ( 4 , '0' ) ;
+        // 1. Check live ETAs feed matching both raw string and numeric key injections
+        for (const c of idCandidates) {
+          if (c == null) continue;
+          const cleanKey = String(c).trim();
+          const unpaddedKey = cleanKey.replace(/^0+/, '');
+          const paddedKey = cleanKey.padStart(4, '0');
 
           const match = 
-            liveEtas ?. [ cleanKey ] ?? 
-            liveEtas ?. [ unpaddedKey ] ?? 
-            liveEtas ?. [ paddedKey ] ?? 
-            liveEtas ?. [ String ( c ) ] ;
+            liveEtas?.[cleanKey] ?? 
+            liveEtas?.[unpaddedKey] ?? 
+            liveEtas?.[paddedKey] ?? 
+            liveEtas?.[Number(cleanKey)]; // Direct fallback check for true numbers
 
-          if ( typeof match === "number" ) {
-            ts = match ;
-            break ;
+          if (typeof match === "number") {
+            ts = match;
+            break;
           }
         }
 
-        // 2. Clear out the broken getLiveRailEta execution loop entirely!
-        if (!ts) {
-          // Fall back to matching by station name arrays if available in liveEtas
-          ts = liveEtas?.[name] || null;
+        // 2. Text name matching fallback
+        if (!ts && liveEtas) {
+          ts = liveEtas[name] || liveEtas[name.replace(" Station", "").trim()] || null;
         }
 
-        // 2. Rail Fallback: If no ETA found in standard feed, check if it's a train
-        const type = activeVehicle.vehicle_type?.toLowerCase();
-        const isRailRoute = 
-          type === 'rail' || 
-          type === 'streetcar' || 
-          activeVehicle.route_id.toUpperCase().includes('ROUTE A') || 
-          activeVehicle.route_id.toUpperCase().includes('ROUTE B');
-
-        if (!ts && isRailRoute) {
-          // Read the timestamp straight from your running background tracker state!
-          ts = railEtas[name] || null;
-        }
-
-        return { name, sid, lat, lng, along, ts };
+        return { name, sid, lat, lng, along, ts, properties: f.properties };
       })
-          
-      .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null } => {
+      .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null; properties: any } => {
         if (!x) return false;
         if (seenNames.has(x.name)) return false;
         seenNames.add(x.name);
         return true;
       })
-
-      // With this property sequence fallback version:
-      // Cleaned up sorting block:
       .sort((a, b) => {
         const seqA = a.properties?.stop_sequence ?? a.properties?.Sequence ?? a.properties?.SequenceNum ?? 0;
         const seqB = b.properties?.stop_sequence ?? b.properties?.Sequence ?? b.properties?.SequenceNum ?? 0;
     
         if (seqA !== 0 || seqB !== 0) {
-          // Standardize direction sorting: Eastbound/Northbound should count upward, Westbound/Southbound flips
-          const isReverse = activeVehicle.direction?.toLowerCase().includes('west') || activeVehicle.direction?.toLowerCase().includes('south');
+          // FORCE LIGHT RAIL ALIGNMENT: Force directional vector checks
+          const dirLower = String(activeVehicle.direction || '').toLowerCase();
+          const isReverse = dirLower.includes('west') || dirLower.includes('south');
           return isReverse ? seqB - seqA : seqA - seqB;
         }
     
         return a.along - b.along;
       });
-  }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas, railEtas]);
+  }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas]);
 
   // Fetch active transit alerts on load and refresh when 'last' changes
   useEffect(() => {
