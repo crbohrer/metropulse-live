@@ -109,6 +109,17 @@ export function TransitMap({
     ? vehicles.filter((v) => v.id === activeVehicle.id)
     : vehicles;
 
+  // 1. HOIST NORMALIZED DIRECTION & REVERSE LOGIC
+  const rawRid = activeVehicle?.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim() || "";
+  let normalizedDir = activeVehicle?.direction || "";
+  if (rawRid === "A" || rawRid === "B" || activeVehicle?.vehicle_type?.toLowerCase() === "rail") {
+    const dLower = normalizedDir.toLowerCase();
+    normalizedDir = (dLower.includes("north") || dLower.includes("west")) ? "Westbound" : "Eastbound";
+  }
+
+  // Light Rail geometry is drawn Mesa(0) to Phoenix(100). Eastbound travels backwards (100 -> 0).
+  const isLineReversed = normalizedDir === "Eastbound" && (rawRid === "A" || rawRid === "B");
+
   const icons = useMemo(
     () => ({
       bus: buildIcon("bus"),
@@ -124,18 +135,9 @@ export function TransitMap({
   // Direction-filtered lines for the active vehicle.
   const routeLines = useMemo<LngLat[][]>(() => {
     if (!isRouteViewActive || !activeVehicle) return [];
-    
-    const rawRid = activeVehicle.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim();
-    let normalizedDir = activeVehicle.direction || "";
-    
-    // NORMALIZE: Force Light Rail into strict East/West constraints to fix double map lines
-    if (rawRid === "A" || rawRid === "B" || activeVehicle.vehicle_type?.toLowerCase() === "rail") {
-      const dLower = normalizedDir.toLowerCase();
-      normalizedDir = (dLower.includes("north") || dLower.includes("west")) ? "Westbound" : "Eastbound";
-    }
-
+    // Now we just use our hoisted, perfectly clean normalizedDir!
     return getActiveRouteLines(routeShape, normalizedDir, activeVehicle.vehicle_type, rawRid);
-  }, [isRouteViewActive, activeVehicle, routeShape]);
+  }, [isRouteViewActive, activeVehicle, routeShape, normalizedDir, rawRid]);
 
   const ghosted = useMemo(
     () => (isRouteViewActive ? buildGhostedRoute(routeLines, activeVehicle) : null),
@@ -180,8 +182,8 @@ export function TransitMap({
         <>
           {routeLines.map((line, i) => {
             if (i === ghosted.lineIndex) return null;
-            // Lines before the active line are "passed"; lines after are upcoming.
-            const isPassedSegment = i < ghosted.lineIndex;
+            // Flip the opacity logic if the geometry is drawn in reverse!
+            const isPassedSegment = isLineReversed ? i > ghosted.lineIndex : i < ghosted.lineIndex;
             return (
               <Polyline
                 key={`other-${shapeKey}-${i}`}
@@ -196,12 +198,14 @@ export function TransitMap({
           })}
           <Polyline
             key={`passed-${shapeKey}`}
-            positions={toLatLng(ghosted.passed)}
+            // Swap the ghosted arrays if traveling backwards
+            positions={toLatLng(isLineReversed ? ghosted.upcoming : ghosted.passed)}
             pathOptions={{ color: activeColor, weight: 4, opacity: 0.3 }}
           />
           <Polyline
             key={`upcoming-${shapeKey}`}
-            positions={toLatLng(ghosted.upcoming)}
+            // Swap the ghosted arrays if traveling backwards
+            positions={toLatLng(isLineReversed ? ghosted.passed : ghosted.upcoming)}
             pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
           />
         </>
@@ -259,7 +263,8 @@ export function TransitMap({
         let isPassed = false;
         if (ghosted) {
           const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
-          isPassed = stopAlong < ghosted.vehicleAlong;
+          // Flip the greater-than check if traveling backwards
+          isPassed = isLineReversed ? stopAlong > ghosted.vehicleAlong : stopAlong < ghosted.vehicleAlong;
         }
 
         return (
@@ -309,8 +314,11 @@ export function TransitMap({
                 </span>
                 <span className="text-xs font-mono opacity-60">#{v.id.split("-")[1]}</span>
               </div>
-              <div className="text-base font-semibold">Route {v.route_id}</div>
-              <div className="text-sm opacity-80">{v.direction}</div>
+             <div className="text-base font-semibold">Route {v.route_id}</div>
+              {/* Stop displaying the confusing compass bearing for active vehicles! */}
+              <div className="text-sm opacity-80">
+                {v.id === activeVehicle?.id ? normalizedDir : v.direction}
+              </div>
               <div
                 className={`text-sm font-medium ${
                   v.delay_seconds > 60 ? "text-amber-500" : "text-emerald-500"
