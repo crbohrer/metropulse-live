@@ -288,17 +288,17 @@ export function TransitSidebar({
           <div className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/20 ring-1 ring-primary/40">
               <Radio className="h-4 w-4 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-base font-semibold leading-tight">MetroPulse</h1>
-            <p className="text-xs text-muted-foreground">Tempe, Arizona · Live</p>
-          </div>
-          <div className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-1 ring-1 ring-emerald-500/30">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-            <span className="text-[10px] font-medium text-emerald-300">LIVE</span>
+            </div>
+            <div>
+              <h1 className="text-base font-semibold leading-tight">MetroPulse</h1>
+              <p className="text-xs text-muted-foreground">Tempe, Arizona · Live</p>
+            </div>
+            <div className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-1 ring-1 ring-emerald-500/30">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+              <span className="text-[10px] font-medium text-emerald-300">LIVE</span>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Search */}
       <div className="relative mb-4">
