@@ -153,7 +153,21 @@ export function TransitSidebar({
 
         // 2. Text name matching fallback
         if (!ts && liveEtas) {
+          // Normalise station name text to drop "Station" or trailing markers
+          const cleanStationName = name.replace(" Station", "").replace(" Stn", "").trim().toLowerCase();
+          
+          // Fallback 1: Direct lookup
           ts = liveEtas[name] || liveEtas[name.replace(" Station", "").trim()] || null;
+          
+          // Fallback 2: Scan liveEtas keys for a text match if the key is a station name string
+          if (!ts) {
+            const matchedKey = Object.keys(liveEtas).find(key => 
+              key.toLowerCase().includes(cleanStationName)
+            );
+            if (matchedKey && typeof liveEtas[matchedKey] === "number") {
+              ts = liveEtas[matchedKey];
+            }
+          }
         }
 
         return { name, sid, lat, lng, along, ts, properties: f.properties };
