@@ -256,12 +256,38 @@ export function TransitSidebar({
   }, [last]);
 
   return (
-    <aside className="glass absolute left-4 top-4 bottom-4 z-10 flex w-[360px] flex-col rounded-2xl p-5 shadow-2xl">
-      {/* Header */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/20 ring-1 ring-primary/40">
-            <Radio className="h-4 w-4 text-primary" />
+    <>
+      {/* 1. THE FLOATING MOBILE BUTTON */}
+      <button
+        onClick={() => setIsMobileOpen(true)}
+        className={`md:hidden absolute top-4 left-4 z-40 p-3 bg-slate-900/90 text-white rounded-xl shadow-lg border border-slate-700 backdrop-blur-md transition-opacity duration-300 ${
+          isMobileOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+        }`}
+      >
+        <Menu className="w-6 h-6" />
+      </button>
+
+      {/* 2. YOUR UPDATED ASIDE TAG (Includes your glass classes + mobile translations) */}
+      <aside 
+        className={`glass absolute left-4 top-4 bottom-4 flex flex-col rounded-2xl p-5 shadow-2xl transition-transform duration-300 ease-in-out z-50 w-[calc(100vw-2rem)] sm:w-[360px] ${
+          isMobileOpen ? "translate-x-0" : "-translate-x-[150%]"
+        } md:translate-x-0`}
+      >
+        {/* 3. THE MOBILE CLOSE BUTTON */}
+        <div className="md:hidden absolute top-2 right-2 z-50">
+          <button 
+            onClick={() => setIsMobileOpen(false)}
+            className="p-2 text-slate-400 hover:text-white bg-slate-800/50 rounded-full transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Header */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/20 ring-1 ring-primary/40">
+              <Radio className="h-4 w-4 text-primary" />
           </div>
           <div>
             <h1 className="text-base font-semibold leading-tight">MetroPulse</h1>
