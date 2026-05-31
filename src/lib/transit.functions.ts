@@ -238,7 +238,7 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Center / Main St": { eastbound: "9499", westbound: "9498" },
   "Mesa Dr / Main St": { eastbound: "9508", westbound: "9502" },
   "Stapley Dr / Main St": { eastbound: "8328", westbound: "8329" },
-  "Gilbert Rd / Main St": { eastbound: "9763", westbound: "9763" },
+  "Gilbert Rd / Main St": { eastbound: "9763", westbound: "9762" },
 };
 
 /**
