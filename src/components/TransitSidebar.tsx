@@ -170,13 +170,14 @@ export function TransitSidebar({
           }
         }
 
-        // LIGHT RAIL PLATFORM DICTIONARY MATCHING
-        if (!ts && liveEtas && isRail) {
+        // 2. TERMINAL-SAFE RAIL DICTIONARY LOOKUP
+        if (!ts && liveEtas && (rawRid === "A" || rawRid === "B")) {
           const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
           const stationDict = RAIL_STATION_CODES[cleanName];
 
           if (stationDict) {
-            const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound';
+            // FIX 1: Add northbound & southbound to the cast so Route B works!
+            const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound' | 'northbound' | 'southbound';
             const primaryCode = stationDict[dirKey];
             
             // Smarter terminal fallback that handles both A (East/West) and B (North/South) routes!
@@ -185,20 +186,31 @@ export function TransitSidebar({
               dirKey === 'westbound' ? stationDict.eastbound :
               dirKey === 'southbound' ? stationDict.northbound :
               stationDict.southbound;
-            
+
             if (primaryCode) {
-              // 1. Check the standard track side
+              // Standard track check
               if (typeof liveEtas[primaryCode] === "number") {
                 ts = liveEtas[primaryCode];
               } 
-              // 2. Terminal Station Fallback: Check the opposite track just in case they switched it!
+              // Terminal Fallback (e.g., Gilbert Rd switching tracks!)
               else if (altCode && typeof liveEtas[altCode] === "number") {
                 ts = liveEtas[altCode];
               }
             } else {
+              // Hide stops on the wrong side of a split track (e.g. Jefferson St)
               validForDirection = false; 
             }
+          } else {
+            // FIX 2: STRICT MODE! If it's a ghost station completely missing from the dictionary, ban it!
+            validForDirection = false;
           }
+        }
+
+        // 🚨 FIX 3: THE KILL SWITCH 🚨
+        // Drop invalid split-track & ghost stations completely off the UI
+        if (!validForDirection) {
+           return null; // <-- USE THIS in TransitMap.tsx
+           // continue; // <-- USE THIS instead if you are in TransitSidebar.tsx!
         }
 
         return { name, sid, lat, lng, along, ts, properties: f.properties, validForDirection };
