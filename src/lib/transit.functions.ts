@@ -262,6 +262,35 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "McDowell / Central Ave": { eastbound: "9021" },
   "Roosevelt / Central Ave": { eastbound: "9026" },
   "Van Buren / Central Ave": { eastbound: "9792" },
+
+  // Camelback & Central Ave Corridor (Perfectly aligned!)
+  "7th Ave / Camelback": { eastbound: "9007", westbound: "9034" },
+  "Central Ave / Camelback": { eastbound: "9012", westbound: "9037" },
+  "Campbell / Central Ave": { eastbound: "9018", westbound: "9035" },
+  "Indian School / Central Ave": { eastbound: "9024", westbound: "9040" },
+  "Osborn / Central Ave": { eastbound: "9024", westbound: "9045" }, // Note: Osborn & Indian School share some track zones
+  "Thomas / Central Ave": { eastbound: "9011", westbound: "9051" },
+  "Encanto / Central Ave": { eastbound: "9015", westbound: "9039" },
+  "McDowell / Central Ave": { eastbound: "9021", westbound: "9042" },
+  "Roosevelt / Central Ave": { eastbound: "9026", westbound: "9048" },
+
+  // Downtown Split: Southbound runs on Central Ave, Northbound runs on 1st Ave!
+  "Van Buren / Central Ave": { eastbound: "9792" },
+  "Van Buren / 1st Ave": { westbound: "9053" },
+  "Washington / Central Ave": { westbound: "9055" },
+  "Downtown Phx Hub / 1st Ave": { westbound: "9793" },
+  "Downtown Phx Hub / Central Ave": { eastbound: "9794" }, // Route A Terminal, Route B Southbound bypasses!
+  "Lincoln / 1st Ave": { westbound: "9791" },
+  "Lincoln / Central Ave": { eastbound: "9790" },
+
+  // South Central Extension (Route B)
+  "Buckeye / Central Ave": { eastbound: "9788", westbound: "9789" },
+  "Pioneer / Central Ave": { eastbound: "9786", westbound: "9787" },
+  "Broadway / Central Ave": { eastbound: "9799", westbound: "9800" },
+  "Roeser / Central Ave": { eastbound: "9784", westbound: "9785" },
+  "Southern / Central Ave": { eastbound: "9782", westbound: "9783" },
+  "Baseline / Central Ave": { eastbound: "9781", westbound: "9781" },
+};
 };
 
 /**
