@@ -18,20 +18,20 @@ interface Feed {
 }
 
 // Replace the old fetchLiveAlerts with this:
-// Replace the old getLiveAlerts with this:
 export async function getLiveAlerts() {
-  // Use a public proxy fallback to let the user's browser pull the alerts directly
   const targetUrl = "https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?asJson=true";
-  const proxyUrl = `https://cors-anywhere.herokuapp.com/${targetUrl}`;
+  // Wrap the endpoint inside a public proxy link to bypass browser domain blocks
+  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
   
   try {
-    let response = await fetch(targetUrl, { headers: { accept: "application/json" } }).catch(() => null);
-    if (!response || !response.ok) {
-      response = await fetch(proxyUrl, { headers: { accept: "application/json" } });
-    }
-    if (!response.ok) throw new Error("Failed to fetch alerts");
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error("Failed to fetch alerts via proxy");
     
-    const data = await response.json();
+    const wrapper = await response.json();
+    const data = JSON.parse(wrapper.contents); // Parse the proxied string content
+    
+    if (!data || !data.entity) return [];
+    
     return data.entity.map((e: any) => {
       const header = e.alert.headerText?.translation?.[0]?.text || "Transit Alert";
       const desc = e.alert.descriptionText?.translation?.[0]?.text || "";
@@ -46,7 +46,7 @@ export async function getLiveAlerts() {
       };
     });
   } catch (error) {
-    console.error("Error fetching alerts on client:", error);
+    console.error("Error fetching alerts on client viewport:", error);
     return [];
   }
 }
