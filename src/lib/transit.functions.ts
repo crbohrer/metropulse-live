@@ -291,7 +291,6 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Southern / Central Ave": { eastbound: "9782", westbound: "9783" },
   "Baseline / Central Ave": { eastbound: "9781", westbound: "9781" },
 };
-};
 
 /**
  * Client-safe fetcher that utilizes a public CORS proxy fallback 
