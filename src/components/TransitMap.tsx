@@ -266,7 +266,13 @@ export function TransitMap({
           if (stationDict) {
             const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound';
             const primaryCode = stationDict[dirKey] || stationDict.northbound || stationDict.southbound;
-            const altCode = dirKey === 'eastbound' ? stationDict.westbound : stationDict.eastbound;
+            
+            // Smarter terminal fallback that handles both A (East/West) and B (North/South) routes!
+            const altCode = 
+              dirKey === 'eastbound' ? stationDict.westbound : 
+              dirKey === 'westbound' ? stationDict.eastbound :
+              dirKey === 'southbound' ? stationDict.northbound :
+              stationDict.southbound;
 
             if (primaryCode) {
               // Standard track check
