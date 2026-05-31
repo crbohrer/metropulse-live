@@ -238,33 +238,61 @@ export function TransitMap({
           (f.properties.STOPNAME as string) ||
           "Transit Stop";
 
-        // Rail/Streetcar stops expose StationId/NextRide/PlatformID instead of stop_id/stop_code.
-        const idCandidates = [
-          f.properties.stop_id,
-          f.properties.stop_code,
-          f.properties.StationId,
-          f.properties.NextRide,
-          f.properties.PlatformID,
-          f.properties.PlatformId,
-          f.properties.platform_id,
-        ];
-        const sid = String(idCandidates[0] ?? "");
+        const idCandidates = [f.properties.stop_id, f.properties.stop_code, f.properties.StationId, f.properties.NextRide, f.properties.PlatformID];
+        
         let ts: number | null = null;
+        let validForDirection = true;
+
+        // 1. BUS ETA MATCHING
         for (const c of idCandidates) {
           if (c == null) continue;
-          const v = liveEtas?.[String(c)];
-          if (typeof v === "number") { ts = v; break; }
+          const cleanKey = String(c).trim();
+          const match = liveEtas?.[cleanKey] ?? liveEtas?.[cleanKey.replace(/^0+/, '')] ?? liveEtas?.[Number(cleanKey)];
+          if (typeof match === "number") { ts = match; break; }
         }
-        const etaLabel =
-          typeof ts === "number"
-            ? new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-            : "No live ETA";
+
+        // 2. TERMINAL-SAFE RAIL DICTIONARY LOOKUP
+        if (!ts && liveEtas && (rawRid === "A" || rawRid === "B")) {
+          const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
+          const stationDict = RAIL_STATION_CODES[cleanName];
+
+          if (stationDict) {
+            const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound';
+            const primaryCode = stationDict[dirKey] || stationDict.northbound || stationDict.southbound;
+            const altCode = dirKey === 'eastbound' ? stationDict.westbound : stationDict.eastbound;
+
+            if (primaryCode) {
+              // Standard track check
+              if (typeof liveEtas[primaryCode] === "number") {
+                ts = liveEtas[primaryCode];
+              } 
+              // Terminal Fallback (e.g., Gilbert Rd switching tracks!)
+              else if (altCode && typeof liveEtas[altCode] === "number") {
+                ts = liveEtas[altCode];
+              }
+            } else {
+              // Hide stops on the wrong side of a split track (e.g. Jefferson St)
+              validForDirection = false; 
+            }
+          }
+        }
+
+        // Drop invalid split-track stations off the map completely
+        if (!validForDirection) return null;
 
         let isPassed = false;
         if (ghosted) {
           const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
-          // Flip the greater-than check if traveling backwards
           isPassed = isLineReversed ? stopAlong > ghosted.vehicleAlong : stopAlong < ghosted.vehicleAlong;
+        }
+
+        // 3. CLEAN ETA FORMATTING
+        let etaLabel = "No live ETA";
+        let isTimePassed = false;
+        if (typeof ts === "number") {
+          const dateObj = new Date(ts * 1000);
+          etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          isTimePassed = (ts * 1000 < Date.now() - 60000); 
         }
 
         return (
@@ -287,10 +315,10 @@ export function TransitMap({
                 </div>
                 <div className="text-sm font-semibold">{name}</div>
                 <div
-                  className={`text-xs ${typeof ts === "number" ? "text-emerald-500 font-medium" : "opacity-70"}`}
+                  className={`text-xs ${typeof ts === "number" ? (isTimePassed ? "text-amber-500 font-medium" : "text-emerald-500 font-medium") : "opacity-70"}`}
                   suppressHydrationWarning
                 >
-                  Live ETA: {etaLabel}
+                  {isTimePassed ? `Passed at: ${etaLabel}` : `Live ETA: ${etaLabel}`}
                 </div>
               </div>
             </Popup>
