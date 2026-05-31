@@ -264,7 +264,8 @@ export function TransitMap({
           const stationDict = RAIL_STATION_CODES[cleanName];
 
           if (stationDict) {
-            const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound';
+            // FIX 1: Add northbound & southbound to the cast so Route B works!
+            const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound' | 'northbound' | 'southbound';
             const primaryCode = stationDict[dirKey];
             
             // Smarter terminal fallback that handles both A (East/West) and B (North/South) routes!
@@ -287,7 +288,17 @@ export function TransitMap({
               // Hide stops on the wrong side of a split track (e.g. Jefferson St)
               validForDirection = false; 
             }
+          } else {
+            // FIX 2: STRICT MODE! If it's a ghost station completely missing from the dictionary, ban it!
+            validForDirection = false;
           }
+        }
+
+        // 🚨 FIX 3: THE KILL SWITCH 🚨
+        // Drop invalid split-track & ghost stations completely off the UI
+        if (!validForDirection) {
+           return null; // <-- USE THIS in TransitMap.tsx
+           // continue; // <-- USE THIS instead if you are in TransitSidebar.tsx!
         }
 
         // Drop invalid split-track stations off the map completely
