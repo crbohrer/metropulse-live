@@ -282,7 +282,14 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
 
   // Route A Terminals (East/West)
   "Downtown Phx Hub / Washington": { westbound: "9795" },
+  "Downtown Phx Hub / Washington St": { westbound: "9795" }, // Alias
+  "Downtown Phoenix Hub / Washington": { westbound: "9795" }, // Alias
+  "Downtown Phoenix Hub / Washington St": { westbound: "9795" }, // Alias
+  
   "Downtown Phx Hub / Jefferson": { eastbound: "9794" },
+  "Downtown Phx Hub / Jefferson St": { eastbound: "9794" }, // Alias
+  "Downtown Phoenix Hub / Jefferson": { eastbound: "9794" }, // Alias
+  "Downtown Phoenix Hub / Jefferson St": { eastbound: "9794" }, // Alias
 };
 
 /**
