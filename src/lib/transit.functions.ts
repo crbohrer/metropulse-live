@@ -268,7 +268,7 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Van Buren / 1st Ave": { southbound: "9792" },
   "Washington / Central Ave": { northbound: "9055" },
   "Downtown Phx Hub / 1st Ave": { southbound: "9790" },
-  "Downtown Phx Hub / Central Ave": { northbound: "9793", eastbound: "9794" },
+  "Downtown Phx Hub / Central Ave": { northbound: "9793" },
   "Lincoln / Central Ave": { northbound: "9791" },
   // Note: Southbound physically skips Lincoln and goes straight to Buckeye!
 
@@ -279,6 +279,10 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Roeser / Central Ave": { southbound: "9784", northbound: "9785" },
   "Southern / Central Ave": { southbound: "9782", northbound: "9783" },
   "Baseline / Central Ave": { southbound: "9781", northbound: "9781" },
+
+  // Route A Terminals (East/West)
+  "Downtown Phx Hub / Washington": { westbound: "9795" },
+  "Downtown Phx Hub / Jefferson": { eastbound: "9794" },
 };
 
 /**
