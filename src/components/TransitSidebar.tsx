@@ -178,11 +178,17 @@ export function TransitSidebar({
 
           if (stationDict) {
             const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound';
-            const platformCode = stationDict[dirKey] || stationDict.northbound || stationDict.southbound;
+            const primaryCode = stationDict[dirKey] || stationDict.northbound || stationDict.southbound;
+            const altCode = dirKey === 'eastbound' ? stationDict.westbound : stationDict.eastbound;
             
-            if (platformCode) {
-              if (typeof liveEtas[platformCode] === "number") {
-                ts = liveEtas[platformCode];
+            if (primaryCode) {
+              // 1. Check the standard track side
+              if (typeof liveEtas[primaryCode] === "number") {
+                ts = liveEtas[primaryCode];
+              } 
+              // 2. Terminal Station Fallback: Check the opposite track just in case they switched it!
+              else if (altCode && typeof liveEtas[altCode] === "number") {
+                ts = liveEtas[altCode];
               }
             } else {
               validForDirection = false; 
