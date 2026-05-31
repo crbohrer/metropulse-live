@@ -135,6 +135,7 @@ export function TransitSidebar({
         const idCandidates = [f.properties?.stop_id, f.properties?.stop_code];
         const sid = String(idCandidates[0] ?? name);
         let ts: number | null = null;
+        let validForDirection = true; // <-- NEW: Flag to catch split-track errors
         
         // 2. STANDARD BUS ETA MATCHING
         for (const c of idCandidates) {
@@ -148,36 +149,47 @@ export function TransitSidebar({
         }
 
         // 3. LIGHT RAIL PLATFORM DICTIONARY MATCHING
-        // If standard lookup fails, translate the text name to a platform ID using our dictionary!
         if (!ts && liveEtas && (rawRid === "A" || rawRid === "B")) {
           const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
           const stationDict = RAIL_STATION_CODES[cleanName];
 
           if (stationDict) {
-            // Grab the exact 4-digit code (e.g. '9033') for the track side we are on
             const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound';
             const platformCode = stationDict[dirKey] || stationDict.northbound || stationDict.southbound;
             
-            if (platformCode && typeof liveEtas[platformCode] === "number") {
-              ts = liveEtas[platformCode];
+            if (platformCode) {
+              if (typeof liveEtas[platformCode] === "number") {
+                ts = liveEtas[platformCode];
+              }
+            } else {
+              // The dictionary knows this station, but NO track exists for this direction!
+              // (e.g., Jefferson St stops for an Eastbound train). Flag it to be hidden.
+              validForDirection = false;
             }
           }
         }
 
-        return { name, sid, lat, lng, along, ts, properties: f.properties };
+        return { name, sid, lat, lng, along, ts, properties: f.properties, validForDirection };
       })
-      .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null; properties: any } => {
+      .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null; properties: any; validForDirection: boolean } => {
         if (!x) return false;
+        if (!x.validForDirection) return false; // Instantly drop stops on the wrong split-track
+        
+        // Instantly drop stops that the vehicle passed more than 60 seconds ago
+        if (x.ts && x.ts * 1000 < Date.now() - 60000) return false;
+
         if (seenNames.has(x.name)) return false;
         seenNames.add(x.name);
         return true;
       })
       .sort((a, b) => {
+        // ULTIMATE GROUND TRUTH: If both have ETAs, sort strictly chronologically!
+        if (a.ts && b.ts) return a.ts - b.ts;
+        
         const seqA = a.properties?.stop_sequence ?? a.properties?.Sequence ?? a.properties?.SequenceNum ?? 0;
         const seqB = b.properties?.stop_sequence ?? b.properties?.Sequence ?? b.properties?.SequenceNum ?? 0;
     
         if (seqA !== 0 || seqB !== 0) {
-          // Use our locked, clean direction for bulletproof sorting
           const isReverse = normalizedDir.toLowerCase() === 'westbound';
           return isReverse ? seqB - seqA : seqA - seqB;
         }
