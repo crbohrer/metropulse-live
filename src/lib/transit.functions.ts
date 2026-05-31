@@ -263,14 +263,14 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "McDowell / Central Ave": { southbound: "9021", northbound: "9042" },
   "Roosevelt / Central Ave": { southbound: "9026", northbound: "9048" },
 
-  // Downtown Split: Southbound runs on Central Ave, Northbound runs on 1st Ave!
-  "Van Buren / Central Ave": { southbound: "9792" },
-  "Van Buren / 1st Ave": { northbound: "9053" },
+  // Downtown Split: Southbound runs on 1st Ave, Northbound runs on Central Ave!
+  "Van Buren / Central Ave": { northbound: "9053" },
+  "Van Buren / 1st Ave": { southbound: "9792" },
   "Washington / Central Ave": { northbound: "9055" },
-  "Downtown Phx Hub / 1st Ave": { northbound: "9793" },
-  "Downtown Phx Hub / Central Ave": { southbound: "9794" }, 
-  "Lincoln / 1st Ave": { northbound: "9791" },
-  "Lincoln / Central Ave": { southbound: "9790" },
+  "Downtown Phx Hub / 1st Ave": { southbound: "9790" },
+  "Downtown Phx Hub / Central Ave": { northbound: "9793", eastbound: "9794" },
+  "Lincoln / Central Ave": { northbound: "9791" },
+  // Note: Southbound physically skips Lincoln and goes straight to Buckeye!
 
   // South Central Extension (Route B)
   "Buckeye / Central Ave": { southbound: "9788", northbound: "9789" },
