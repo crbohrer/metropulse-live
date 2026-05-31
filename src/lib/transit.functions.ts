@@ -211,13 +211,13 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   // Downtown Phoenix Hub
   "Downtown Phoenix Hub": { eastbound: "9794", westbound: "9795" },
   
-  // Split Downtown Tracks (Eastbound runs Washington, Westbound runs Jefferson)
-  "3rd St / Washington": { eastbound: "9004" },
-  "3rd St / Jefferson": { westbound: "9032" },
-  "12th St / Washington": { eastbound: "9000" },
-  "12th St / Jefferson": { westbound: "9028" },
-  "24th St / Washington": { eastbound: "9002" },
-  "24th St / Jefferson": { westbound: "9030" },
+  // Split Downtown Tracks: Westbound runs on Washington, Eastbound runs on Jefferson!
+  "3rd St / Washington": { westbound: "9032" }, 
+  "3rd St / Jefferson": { eastbound: "9004" },  
+  "12th St / Washington": { westbound: "9028" }, 
+  "12th St / Jefferson": { eastbound: "9000" },  
+  "24th St / Washington": { westbound: "9030" }, 
+  "24th St / Jefferson": { eastbound: "9002" },  
 
   // Shared Phoenix / Tempe / Mesa Stations
   "38th St / Washington": { eastbound: "9003", westbound: "9031" },
