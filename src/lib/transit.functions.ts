@@ -208,18 +208,37 @@ export const getLiveVehicles = createServerFn({ method: "GET" }).handler(
 
 
 export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?: string; northbound?: string; southbound?: string }> = {
-  "Dorsey Ln / Apache Blvd": { eastbound: "9027", westbound: "9031" },
-  "University Dr / Rural Rd": { eastbound: "9025", westbound: "9030" },
-  "Veterans Way / College Ave": { eastbound: "9022", westbound: "9033" },
-  "Mill Ave / 3rd St": { eastbound: "9020", westbound: "9036" },
-  "Center Pkwy / Washington": { eastbound: "9018", westbound: "9038" },
-  "Priest Dr / Washington St": { eastbound: "9016", westbound: "9041" },
-  "50th St / Washington St": { eastbound: "9014", westbound: "9043" },
-  "44th St / Washington": { eastbound: "9012", westbound: "9046" },
-  "38th St / Washington": { eastbound: "9010", westbound: "9047" },
-  "24th St / Jefferson": { westbound: "9050" },
-  "12th St / Jefferson": { westbound: "9052" },
-  "3rd St / Jefferson": { westbound: "9054" },
+  // Downtown Phoenix Hub
+  "Downtown Phoenix Hub": { eastbound: "9794", westbound: "9795" },
+  
+  // Split Downtown Tracks (Eastbound runs Washington, Westbound runs Jefferson)
+  "3rd St / Washington": { eastbound: "9004" },
+  "3rd St / Jefferson": { westbound: "9032" },
+  "12th St / Washington": { eastbound: "9000" },
+  "12th St / Jefferson": { westbound: "9028" },
+  "24th St / Washington": { eastbound: "9002" },
+  "24th St / Jefferson": { westbound: "9030" },
+
+  // Shared Phoenix / Tempe / Mesa Stations
+  "38th St / Washington": { eastbound: "9003", westbound: "9031" },
+  "44th St / Washington": { eastbound: "9005", westbound: "9033" },
+  "50th St / Washington St": { eastbound: "9765", westbound: "9764" },
+  "Priest Dr / Washington St": { eastbound: "9020", westbound: "9047" },
+  "Center Pkwy / Washington": { eastbound: "9008", westbound: "9036" },
+  "Mill Ave / 3rd St": { eastbound: "9016", westbound: "9043" },
+  "Veterans Way / College Ave": { eastbound: "9027", westbound: "9054" },
+  "University Dr / Rural Rd": { eastbound: "9025", westbound: "9052" },
+  "Dorsey Ln / Apache Blvd": { eastbound: "9010", westbound: "9038" },
+  "McClintock Dr / Apache Blvd": { eastbound: "9014", westbound: "9041" },
+  "Smith-Martin / Apache Blvd": { eastbound: "9022", westbound: "9049" },
+  "Price-101 / Apache Blvd": { eastbound: "9019", westbound: "9046" },
+  "Sycamore / Main St": { eastbound: "9023", westbound: "9050" },
+  "Alma School / Main St": { eastbound: "9126", westbound: "9125" },
+  "Country Club / Main St": { eastbound: "9353", westbound: "9347" },
+  "Center / Main St": { eastbound: "9499", westbound: "9498" },
+  "Mesa Dr / Main St": { eastbound: "9508", westbound: "9502" },
+  "Stapley Dr / Main St": { eastbound: "8328", westbound: "8329" },
+  "Gilbert Rd / Main St": { eastbound: "9763", westbound: "9763" },
 };
 
 /**
