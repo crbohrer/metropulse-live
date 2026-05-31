@@ -241,55 +241,44 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Gilbert Rd / Main St": { eastbound: "9763", westbound: "9762" },
 
   // Northwest Extension
-  "Metro Parkway": { eastbound: "9778" },
-  "Mountain View / 25th Ave": { eastbound: "6660" },
-  "25th Ave / Dunlap": { eastbound: "6658" },
-  
+  "Metro Parkway": { southbound: "9773", northbound: "9773" }, // Terminal station uses 9773
+  "Mountain View / 25th Ave": { southbound: "6660", northbound: "9776" },
+  "25th Ave / Dunlap": { southbound: "6658", northbound: "9777" },
+
   // 19th Ave Corridor
-  "19th Ave / Dunlap": { eastbound: "6656" },
-  "Northern / 19th Ave": { eastbound: "9017" },
-  "Glendale / 19th Ave": { eastbound: "9001" },
-  "Montebello / 19th Ave": { eastbound: "9006" },
-  "Camelback / 19th Ave": { eastbound: "9009" },
+  "19th Ave / Dunlap": { southbound: "6656", northbound: "6659" },
+  "Northern / 19th Ave": { southbound: "9017", northbound: "6657" },
+  "Glendale / 19th Ave": { southbound: "9001", northbound: "6655" },
+  "Montebello / 19th Ave": { southbound: "9006", northbound: "9044" },
+  "Camelback / 19th Ave": { southbound: "9009", northbound: "9029" },
 
-  // Central Ave Corridor
-  "Camelback / Central Ave": { eastbound: "9007" },
-  "Campbell / Central Ave": { eastbound: "9012" },
-  "Indian School / Central Ave": { eastbound: "9018" },
-  "Osborn / Central Ave": { eastbound: "9024" },
-  "Thomas / Central Ave": { eastbound: "9011" },
-  "Encanto / Central Ave": { eastbound: "9015" },
-  "McDowell / Central Ave": { eastbound: "9021" },
-  "Roosevelt / Central Ave": { eastbound: "9026" },
-  "Van Buren / Central Ave": { eastbound: "9792" },
-
-  // Camelback & Central Ave Corridor (Perfectly aligned!)
-  "7th Ave / Camelback": { eastbound: "9007", westbound: "9034" },
-  "Central Ave / Camelback": { eastbound: "9012", westbound: "9037" },
-  "Campbell / Central Ave": { eastbound: "9018", westbound: "9035" },
-  "Indian School / Central Ave": { eastbound: "9024", westbound: "9040" },
-  "Osborn / Central Ave": { eastbound: "9024", westbound: "9045" }, // Note: Osborn & Indian School share some track zones
-  "Thomas / Central Ave": { eastbound: "9011", westbound: "9051" },
-  "Encanto / Central Ave": { eastbound: "9015", westbound: "9039" },
-  "McDowell / Central Ave": { eastbound: "9021", westbound: "9042" },
-  "Roosevelt / Central Ave": { eastbound: "9026", westbound: "9048" },
+  // Camelback & Central Ave Corridor
+  "7th Ave / Camelback": { southbound: "9007", northbound: "9034" },
+  "Central Ave / Camelback": { southbound: "9012", northbound: "9037" },
+  "Campbell / Central Ave": { southbound: "9018", northbound: "9035" },
+  "Indian School / Central Ave": { southbound: "9024", northbound: "9040" },
+  "Osborn / Central Ave": { southbound: "9024", northbound: "9045" }, 
+  "Thomas / Central Ave": { southbound: "9011", northbound: "9051" },
+  "Encanto / Central Ave": { southbound: "9015", northbound: "9039" },
+  "McDowell / Central Ave": { southbound: "9021", northbound: "9042" },
+  "Roosevelt / Central Ave": { southbound: "9026", northbound: "9048" },
 
   // Downtown Split: Southbound runs on Central Ave, Northbound runs on 1st Ave!
-  "Van Buren / Central Ave": { eastbound: "9792" },
-  "Van Buren / 1st Ave": { westbound: "9053" },
-  "Washington / Central Ave": { westbound: "9055" },
-  "Downtown Phx Hub / 1st Ave": { westbound: "9793" },
-  "Downtown Phx Hub / Central Ave": { eastbound: "9794" }, // Route A Terminal, Route B Southbound bypasses!
-  "Lincoln / 1st Ave": { westbound: "9791" },
-  "Lincoln / Central Ave": { eastbound: "9790" },
+  "Van Buren / Central Ave": { southbound: "9792" },
+  "Van Buren / 1st Ave": { northbound: "9053" },
+  "Washington / Central Ave": { northbound: "9055" },
+  "Downtown Phx Hub / 1st Ave": { northbound: "9793" },
+  "Downtown Phx Hub / Central Ave": { southbound: "9794" }, 
+  "Lincoln / 1st Ave": { northbound: "9791" },
+  "Lincoln / Central Ave": { southbound: "9790" },
 
   // South Central Extension (Route B)
-  "Buckeye / Central Ave": { eastbound: "9788", westbound: "9789" },
-  "Pioneer / Central Ave": { eastbound: "9786", westbound: "9787" },
-  "Broadway / Central Ave": { eastbound: "9799", westbound: "9800" },
-  "Roeser / Central Ave": { eastbound: "9784", westbound: "9785" },
-  "Southern / Central Ave": { eastbound: "9782", westbound: "9783" },
-  "Baseline / Central Ave": { eastbound: "9781", westbound: "9781" },
+  "Buckeye / Central Ave": { southbound: "9788", northbound: "9789" },
+  "Pioneer / Central Ave": { southbound: "9786", northbound: "9787" },
+  "Broadway / Central Ave": { southbound: "9799", northbound: "9800" },
+  "Roeser / Central Ave": { southbound: "9784", northbound: "9785" },
+  "Southern / Central Ave": { southbound: "9782", northbound: "9783" },
+  "Baseline / Central Ave": { southbound: "9781", northbound: "9781" },
 };
 
 /**
