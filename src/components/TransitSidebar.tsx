@@ -175,7 +175,7 @@ export function TransitSidebar({
 
           if (stationDict) {
             const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound';
-            const primaryCode = stationDict[dirKey] || stationDict.northbound || stationDict.southbound;
+            const primaryCode = stationDict[dirKey];
             
             // Smarter terminal fallback that handles both A (East/West) and B (North/South) routes!
             const altCode = 
