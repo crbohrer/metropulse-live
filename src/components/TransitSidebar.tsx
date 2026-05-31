@@ -135,7 +135,19 @@ export function TransitSidebar({
         }
 
         const name = f.properties?.stop_name || f.properties?.StationName || "Transit Stop";
-        const idCandidates = [f.properties?.stop_id, f.properties?.stop_code];
+        
+        // 1. RESTORE FULL PLATFORM ID LOOKUPS
+        // This ensures the Mesa extension stations can expose their NextRide tracking codes!
+        const idCandidates = [
+          f.properties?.stop_id,
+          f.properties?.stop_code,
+          f.properties?.StationId,
+          f.properties?.NextRide,
+          f.properties?.PlatformID,
+          f.properties?.PlatformId,
+          f.properties?.platform_id,
+        ];
+        
         const sid = String(idCandidates[0] ?? name);
         let ts: number | null = null;
         let validForDirection = true;
