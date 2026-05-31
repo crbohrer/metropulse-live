@@ -152,13 +152,6 @@ export function TransitSidebar({
         let ts: number | null = null;
         let validForDirection = true;
         
-        // 4. HARD-FILTER DOWNTOWN SPLIT TRACKS
-        // Eradicates ghosts: Eastbound runs on Washington, Westbound runs on Jefferson
-        if (isRail) {
-          const lowerName = name.toLowerCase();
-          if (normalizedDir === "Eastbound" && lowerName.includes("jefferson")) validForDirection = false;
-          if (normalizedDir === "Westbound" && lowerName.includes("washington")) validForDirection = false;
-        }
         
         // STANDARD BUS ETA MATCHING
         for (const c of idCandidates) {
