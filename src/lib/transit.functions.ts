@@ -250,7 +250,7 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Northern / 19th Ave": { southbound: "9017", northbound: "6657" },
   "Glendale / 19th Ave": { southbound: "9001", northbound: "6655" },
   "Montebello / 19th Ave": { southbound: "9006", northbound: "9044" },
-  "Camelback / 19th Ave": { southbound: "9009", northbound: "9029" },
+  "19th Ave / Camelback": { southbound: "9009", northbound: "9029" },
 
   // Camelback & Central Ave Corridor
   "7th Ave / Camelback": { southbound: "9007", northbound: "9034" },
