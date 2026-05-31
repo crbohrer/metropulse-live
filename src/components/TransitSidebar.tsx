@@ -490,5 +490,6 @@ export function TransitSidebar({
         </div>
       </div>
     </aside>
+  </>
   );
 }
