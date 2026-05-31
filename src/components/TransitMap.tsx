@@ -109,17 +109,24 @@ export function TransitMap({
     ? vehicles.filter((v) => v.id === activeVehicle.id)
     : vehicles;
 
-  // 1. HOIST NORMALIZED DIRECTION & REVERSE LOGIC
-  const rawRid = activeVehicle?.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim() || "";
-  let normalizedDir = activeVehicle?.direction || "";
-  if (rawRid === "A" || rawRid === "B" || activeVehicle?.vehicle_type?.toLowerCase() === "rail") {
-    const dLower = normalizedDir.toLowerCase();
-    normalizedDir = (dLower.includes("north") || dLower.includes("west")) ? "Westbound" : "Eastbound";
-  }
+  // 1. NORMALIZE LIGHT RAIL DIRECTIONS
+    const rawRid = activeVehicle?.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim() || "";
+    let normalizedDir = activeVehicle?.direction || "";
+    const isRail = rawRid === "A" || rawRid === "B" || activeVehicle?.vehicle_type?.toLowerCase() === "rail";
 
-  // Light Rail geometry is drawn Mesa(0) to Phoenix(100). Eastbound travels backwards (100 -> 0).
-  const isLineReversed = normalizedDir === "Eastbound" && (rawRid === "A" || rawRid === "B");
+    if (rawRid === "A") {
+      const dLower = normalizedDir.toLowerCase();
+      normalizedDir = (dLower.includes("north") || dLower.includes("west")) ? "Westbound" : "Eastbound";
+    } else if (rawRid === "B") {
+      const dLower = normalizedDir.toLowerCase();
+      // Route B is the North/South corridor!
+      normalizedDir = (dLower.includes("east") || dLower.includes("south")) ? "Southbound" : "Northbound";
+    }
 
+    // 2. IDENTIFY REVERSED GEOMETRY
+    // Route A geometry is Mesa(0) to Phoenix(100), so Eastbound travels backwards.
+    // Route B geometry is Baseline(0) to Metro Pkwy(100), so Southbound travels backwards.
+    const isLineReversed = (rawRid === "A" && normalizedDir === "Eastbound") || (rawRid === "B" && normalizedDir === "Southbound");
   const icons = useMemo(
     () => ({
       bus: buildIcon("bus"),
