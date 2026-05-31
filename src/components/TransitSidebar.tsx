@@ -4,6 +4,7 @@ import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
 import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
 import { getLiveAlerts } from "@/lib/transit.functions";
 import { getLiveRailEta } from "../lib/transit.functions";
+import { RAIL_STATION_CODES } from "../lib/transit.functions";
 import {
   alongDistance,
   buildGhostedRoute,
@@ -88,18 +89,32 @@ export function TransitSidebar({
   const upcomingStops = useMemo(() => {
     if (!isRouteViewActive || !activeVehicle) return [];
     
-    // Extract JUST the clean route letter ('A' or 'B') to match the feed payload directly
-    const rawRid = activeVehicle.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim(); // e.g. "A"
-    const rid = rawRid;
+    const rawRid = activeVehicle.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim();
     
+    // 1. NORMALIZE LIGHT RAIL DIRECTIONS
+    // Fixes the double-line map glitch and ensures stops sequence correctly
+    let normalizedDir = activeVehicle.direction || "";
+    if (rawRid === "A" || rawRid === "B" || activeVehicle.vehicle_type?.toLowerCase() === "rail") {
+      const dLower = normalizedDir.toLowerCase();
+      // Valley Metro API labels trains to Phoenix as North/West, and trains to Mesa as South/East
+      if (dLower.includes("north") || dLower.includes("west")) {
+        normalizedDir = "Westbound";
+      } else {
+        normalizedDir = "Eastbound";
+      }
+    }
+
+    // Pass the cleaned direction so only ONE line renders on the map
     const lines = getActiveRouteLines(
       routeShape,
-      activeVehicle.direction,
+      normalizedDir, 
       activeVehicle.vehicle_type,
-      rid,
+      rawRid,
     );
     const ghosted = buildGhostedRoute(lines, activeVehicle);
-    const stops = filterRouteStops(routeStops, activeVehicle);
+    
+    // Filter stops using the cleaned direction
+    const stops = filterRouteStops(routeStops, { ...activeVehicle, direction: normalizedDir });
     const seenNames = new Set<string>();
 
     return stops
@@ -116,60 +131,35 @@ export function TransitSidebar({
         const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
         if (ghosted && along < ghosted.vehicleAlong) return null;
 
-        const name =
-          f.properties?.stop_name ||
-          f.properties?.StationName ||
-          f.properties?.Stop_Name ||
-          f.properties?.StopName ||
-          "Transit Stop";
-
-        const idCandidates = [
-          f.properties?.stop_id,
-          f.properties?.stop_code,
-          f.properties?.StationId,
-          f.properties?.NextRide,
-          f.properties?.PlatformID,
-          f.properties?.PlatformId,
-          f.properties?.platform_id,
-        ];
-
+        const name = f.properties?.stop_name || f.properties?.StationName || "Transit Stop";
+        const idCandidates = [f.properties?.stop_id, f.properties?.stop_code];
         const sid = String(idCandidates[0] ?? name);
         let ts: number | null = null;
         
-        // 1. Check live ETAs feed matching both raw string and numeric key injections
+        // 2. STANDARD BUS ETA MATCHING
         for (const c of idCandidates) {
           if (c == null) continue;
           const cleanKey = String(c).trim();
-          const unpaddedKey = cleanKey.replace(/^0+/, '');
-          const paddedKey = cleanKey.padStart(4, '0');
-
-          const match = 
-            liveEtas?.[cleanKey] ?? 
-            liveEtas?.[unpaddedKey] ?? 
-            liveEtas?.[paddedKey] ?? 
-            liveEtas?.[Number(cleanKey)]; // Direct fallback check for true numbers
-
+          const match = liveEtas?.[cleanKey] ?? liveEtas?.[cleanKey.replace(/^0+/, '')] ?? liveEtas?.[Number(cleanKey)];
           if (typeof match === "number") {
             ts = match;
             break;
           }
         }
 
-        // 2. Text name matching fallback
-        if (!ts && liveEtas) {
-          // Normalise station name text to drop "Station" or trailing markers
-          const cleanStationName = name.replace(" Station", "").replace(" Stn", "").trim().toLowerCase();
-          
-          // Fallback 1: Direct lookup
-          ts = liveEtas[name] || liveEtas[name.replace(" Station", "").trim()] || null;
-          
-          // Fallback 2: Scan liveEtas keys for a text match if the key is a station name string
-          if (!ts) {
-            const matchedKey = Object.keys(liveEtas).find(key => 
-              key.toLowerCase().includes(cleanStationName)
-            );
-            if (matchedKey && typeof liveEtas[matchedKey] === "number") {
-              ts = liveEtas[matchedKey];
+        // 3. LIGHT RAIL PLATFORM DICTIONARY MATCHING
+        // If standard lookup fails, translate the text name to a platform ID using our dictionary!
+        if (!ts && liveEtas && (rawRid === "A" || rawRid === "B")) {
+          const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
+          const stationDict = RAIL_STATION_CODES[cleanName];
+
+          if (stationDict) {
+            // Grab the exact 4-digit code (e.g. '9033') for the track side we are on
+            const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound';
+            const platformCode = stationDict[dirKey] || stationDict.northbound || stationDict.southbound;
+            
+            if (platformCode && typeof liveEtas[platformCode] === "number") {
+              ts = liveEtas[platformCode];
             }
           }
         }
@@ -187,9 +177,8 @@ export function TransitSidebar({
         const seqB = b.properties?.stop_sequence ?? b.properties?.Sequence ?? b.properties?.SequenceNum ?? 0;
     
         if (seqA !== 0 || seqB !== 0) {
-          // FORCE LIGHT RAIL ALIGNMENT: Force directional vector checks
-          const dirLower = String(activeVehicle.direction || '').toLowerCase();
-          const isReverse = dirLower.includes('west') || dirLower.includes('south');
+          // Use our locked, clean direction for bulletproof sorting
+          const isReverse = normalizedDir.toLowerCase() === 'westbound';
           return isReverse ? seqB - seqA : seqA - seqB;
         }
     
