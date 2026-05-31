@@ -90,21 +90,19 @@ export function TransitSidebar({
     if (!isRouteViewActive || !activeVehicle) return [];
     
     const rawRid = activeVehicle.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim();
+    let normalizedDir = activeVehicle.direction || "";
+    const isRail = rawRid === "A" || rawRid === "B" || activeVehicle.vehicle_type?.toLowerCase() === "rail";
     
     // 1. NORMALIZE LIGHT RAIL DIRECTIONS
-    // Fixes the double-line map glitch and ensures stops sequence correctly
-    let normalizedDir = activeVehicle.direction || "";
-    if (rawRid === "A" || rawRid === "B" || activeVehicle.vehicle_type?.toLowerCase() === "rail") {
+    if (isRail) {
       const dLower = normalizedDir.toLowerCase();
-      // Valley Metro API labels trains to Phoenix as North/West, and trains to Mesa as South/East
-      if (dLower.includes("north") || dLower.includes("west")) {
-        normalizedDir = "Westbound";
-      } else {
-        normalizedDir = "Eastbound";
-      }
+      normalizedDir = (dLower.includes("north") || dLower.includes("west")) ? "Westbound" : "Eastbound";
     }
 
-    // Pass the cleaned direction so only ONE line renders on the map
+    // 2. IDENTIFY REVERSED GEOMETRY
+    // Light Rail geometry is drawn Mesa(0) to Phoenix(100). Eastbound travels backwards (100 -> 0).
+    const isLineReversed = normalizedDir === "Eastbound" && isRail;
+
     const lines = getActiveRouteLines(
       routeShape,
       normalizedDir, 
@@ -113,7 +111,6 @@ export function TransitSidebar({
     );
     const ghosted = buildGhostedRoute(lines, activeVehicle);
     
-    // Filter stops using the cleaned direction
     const stops = filterRouteStops(routeStops, { ...activeVehicle, direction: normalizedDir });
     const seenNames = new Set<string>();
 
@@ -129,15 +126,29 @@ export function TransitSidebar({
         }
 
         const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
-        if (ghosted && along < ghosted.vehicleAlong) return null;
+        
+        // 3. CORRECT "PASSED STOP" FILTERING
+        // Drop stops that are behind the vehicle based on the reversed geometry direction!
+        if (ghosted) {
+          const isPassed = isLineReversed ? along > ghosted.vehicleAlong : along < ghosted.vehicleAlong;
+          if (isPassed) return null;
+        }
 
         const name = f.properties?.stop_name || f.properties?.StationName || "Transit Stop";
         const idCandidates = [f.properties?.stop_id, f.properties?.stop_code];
         const sid = String(idCandidates[0] ?? name);
         let ts: number | null = null;
-        let validForDirection = true; // <-- NEW: Flag to catch split-track errors
+        let validForDirection = true;
         
-        // 2. STANDARD BUS ETA MATCHING
+        // 4. HARD-FILTER DOWNTOWN SPLIT TRACKS
+        // Eradicates ghosts: Eastbound runs on Washington, Westbound runs on Jefferson
+        if (isRail) {
+          const lowerName = name.toLowerCase();
+          if (normalizedDir === "Eastbound" && lowerName.includes("jefferson")) validForDirection = false;
+          if (normalizedDir === "Westbound" && lowerName.includes("washington")) validForDirection = false;
+        }
+        
+        // STANDARD BUS ETA MATCHING
         for (const c of idCandidates) {
           if (c == null) continue;
           const cleanKey = String(c).trim();
@@ -148,8 +159,8 @@ export function TransitSidebar({
           }
         }
 
-        // 3. LIGHT RAIL PLATFORM DICTIONARY MATCHING
-        if (!ts && liveEtas && (rawRid === "A" || rawRid === "B")) {
+        // LIGHT RAIL PLATFORM DICTIONARY MATCHING
+        if (!ts && liveEtas && isRail) {
           const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
           const stationDict = RAIL_STATION_CODES[cleanName];
 
@@ -162,9 +173,7 @@ export function TransitSidebar({
                 ts = liveEtas[platformCode];
               }
             } else {
-              // The dictionary knows this station, but NO track exists for this direction!
-              // (e.g., Jefferson St stops for an Eastbound train). Flag it to be hidden.
-              validForDirection = false;
+              validForDirection = false; 
             }
           }
         }
@@ -173,9 +182,9 @@ export function TransitSidebar({
       })
       .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null; properties: any; validForDirection: boolean } => {
         if (!x) return false;
-        if (!x.validForDirection) return false; // Instantly drop stops on the wrong split-track
+        if (!x.validForDirection) return false;
         
-        // Instantly drop stops that the vehicle passed more than 60 seconds ago
+        // Drop stops that the vehicle passed more than 60 seconds ago
         if (x.ts && x.ts * 1000 < Date.now() - 60000) return false;
 
         if (seenNames.has(x.name)) return false;
@@ -183,18 +192,20 @@ export function TransitSidebar({
         return true;
       })
       .sort((a, b) => {
-        // ULTIMATE GROUND TRUTH: If both have ETAs, sort strictly chronologically!
+        // 1. Chronological order is king
         if (a.ts && b.ts) return a.ts - b.ts;
         
+        // 2. Fallback geometry sequence sorting
         const seqA = a.properties?.stop_sequence ?? a.properties?.Sequence ?? a.properties?.SequenceNum ?? 0;
         const seqB = b.properties?.stop_sequence ?? b.properties?.Sequence ?? b.properties?.SequenceNum ?? 0;
     
         if (seqA !== 0 || seqB !== 0) {
-          const isReverse = normalizedDir.toLowerCase() === 'westbound';
-          return isReverse ? seqB - seqA : seqA - seqB;
+          return isLineReversed ? seqB - seqA : seqA - seqB;
         }
     
-        return a.along - b.along;
+        // 3. Fallback spatial sorting
+        // Eastbound tracks backwards (100 -> 0), so LARGER distances are closer/upcoming
+        return isLineReversed ? b.along - a.along : a.along - b.along;
       });
   }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas]);
 
