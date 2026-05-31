@@ -87,7 +87,11 @@ export function TransitSidebar({
 
   const upcomingStops = useMemo(() => {
     if (!isRouteViewActive || !activeVehicle) return [];
-    const rid = activeVehicle.route_id.split("·")[0].split(" · ")[0].trim();
+    
+    // Extract JUST the clean route letter ('A' or 'B') to match the feed payload directly
+    const rawRid = activeVehicle.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim(); // e.g. "A"
+    const rid = rawRid;
+    
     const lines = getActiveRouteLines(
       routeShape,
       activeVehicle.direction,
