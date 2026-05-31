@@ -239,6 +239,29 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Mesa Dr / Main St": { eastbound: "9508", westbound: "9502" },
   "Stapley Dr / Main St": { eastbound: "8328", westbound: "8329" },
   "Gilbert Rd / Main St": { eastbound: "9763", westbound: "9762" },
+
+  // Northwest Extension
+  "Metro Parkway": { eastbound: "9778" },
+  "Mountain View / 25th Ave": { eastbound: "6660" },
+  "25th Ave / Dunlap": { eastbound: "6658" },
+  
+  // 19th Ave Corridor
+  "19th Ave / Dunlap": { eastbound: "6656" },
+  "Northern / 19th Ave": { eastbound: "9017" },
+  "Glendale / 19th Ave": { eastbound: "9001" },
+  "Montebello / 19th Ave": { eastbound: "9006" },
+  "Camelback / 19th Ave": { eastbound: "9009" },
+
+  // Central Ave Corridor
+  "Camelback / Central Ave": { eastbound: "9007" },
+  "Campbell / Central Ave": { eastbound: "9012" },
+  "Indian School / Central Ave": { eastbound: "9018" },
+  "Osborn / Central Ave": { eastbound: "9024" },
+  "Thomas / Central Ave": { eastbound: "9011" },
+  "Encanto / Central Ave": { eastbound: "9015" },
+  "McDowell / Central Ave": { eastbound: "9021" },
+  "Roosevelt / Central Ave": { eastbound: "9026" },
+  "Van Buren / Central Ave": { eastbound: "9792" },
 };
 
 /**
