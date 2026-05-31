@@ -1,5 +1,6 @@
 import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin } from "lucide-react";
 import { useState, useEffect, useMemo } from 'react';
+import { Menu, X } from "lucide-react";
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
 import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
 import { getLiveAlerts } from "@/lib/transit.functions";
@@ -72,6 +73,7 @@ export function TransitSidebar({
   const [, forceUpdate] = useState({});
   const [railEtas, setRailEtas] = useState<Record<string, number>>({});
   const [itineraryOpen, setItineraryOpen] = useState(true);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const filtered = vehicles.filter(
     (v) =>
