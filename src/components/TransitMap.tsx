@@ -4,6 +4,8 @@ import { useEffect, useMemo } from "react";
 import type { Vehicle, VehicleType } from "@/lib/mock-transit";
 import type { GeoJSON as RouteGeoJSON, GeoJSONFeature } from "@/lib/route-shapes.functions";
 import { nearestOnLines } from "@/lib/geo-utils"; // Adjust path if necessary
+import { alongDistance, buildGhostedRoute, filterRouteStops, getActiveRouteLines, type LngLat } from "@/lib/geo-utils";
+import { RAIL_STATION_CODES } from "@/lib/transit.functions"; // <-- Add this new import!
 import {
   alongDistance,
   buildGhostedRoute,
@@ -122,8 +124,17 @@ export function TransitMap({
   // Direction-filtered lines for the active vehicle.
   const routeLines = useMemo<LngLat[][]>(() => {
     if (!isRouteViewActive || !activeVehicle) return [];
-    const rid = activeVehicle.route_id.split("·")[0].split(" · ")[0].trim();
-    return getActiveRouteLines(routeShape, activeVehicle.direction, activeVehicle.vehicle_type, rid);
+    
+    const rawRid = activeVehicle.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim();
+    let normalizedDir = activeVehicle.direction || "";
+    
+    // NORMALIZE: Force Light Rail into strict East/West constraints to fix double map lines
+    if (rawRid === "A" || rawRid === "B" || activeVehicle.vehicle_type?.toLowerCase() === "rail") {
+      const dLower = normalizedDir.toLowerCase();
+      normalizedDir = (dLower.includes("north") || dLower.includes("west")) ? "Westbound" : "Eastbound";
+    }
+
+    return getActiveRouteLines(routeShape, normalizedDir, activeVehicle.vehicle_type, rawRid);
   }, [isRouteViewActive, activeVehicle, routeShape]);
 
   const ghosted = useMemo(
