@@ -290,6 +290,33 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Downtown Phx Hub / Jefferson St": { eastbound: "9794" }, // Alias
   "Downtown Phoenix Hub / Jefferson": { eastbound: "9794" }, // Alias
   "Downtown Phoenix Hub / Jefferson St": { eastbound: "9794" }, // Alias
+
+  // Tempe Streetcar (Route S)
+  "Dorsey Ln / Apache": { northbound: "9721", southbound: "9694" },
+  "Dorsey Ln / Apache Blvd": { northbound: "9721", southbound: "9694" },
+  
+  "Rural / Apache": { northbound: "8954", southbound: "9099" },
+  "Rural Rd / Apache Blvd": { northbound: "8954", southbound: "9099" },
+  
+  "Paseo Del Saber / Apache": { northbound: "9666", southbound: "9666" },
+  
+  "College Ave / Apache": { northbound: "9771", southbound: "9769" },
+  "College Ave / Apache Blvd": { northbound: "9771", southbound: "9769" },
+  
+  "Eleventh St / Mill": { northbound: "9731", southbound: "9546" },
+  "11th St / Mill": { northbound: "9731", southbound: "9546" },
+  
+  "Ninth St / Mill": { northbound: "9772", southbound: "9551" },
+  "Sixth St / Mill": { northbound: "9742", southbound: "9742" },
+  "Third St / Mill": { northbound: "9734", southbound: "9734" },
+  
+  "University Dr / Ash": { southbound: "9768" },
+  "Fifth St / Ash": { southbound: "9545" },
+  "Third St / Ash": { southbound: "9525" },
+  
+  "Tempe Beach Park / Rio Salado": { southbound: "9767" },
+  "Hayden Ferry / Rio Salado": { northbound: "9766", southbound: "9766" },
+  "Marina Heights / Rio Salado": { northbound: "9419", southbound: "9419" },
 };
 
 /**
