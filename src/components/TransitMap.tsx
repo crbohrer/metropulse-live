@@ -329,10 +329,14 @@ export function TransitMap({
           let etaLabel = "No live ETA";
           let isTimePassed = false;
 
-          // 1. Calculate GPS distance first
+          // 1. Calculate GPS distance first (WITH A 50-METER BUFFER)
           if (ghosted) {
             const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
-            isPassed = isLineReversed ? stopAlong > ghosted.vehicleAlong : stopAlong < ghosted.vehicleAlong;
+            const BUFFER = 0.05; // 0.05 Kilometers = 50 Meters
+            
+            isPassed = isLineReversed 
+                ? stopAlong > (ghosted.vehicleAlong + BUFFER) 
+                : stopAlong < (ghosted.vehicleAlong - BUFFER);
           }
 
           // 2. Apply the Temporal Veto
@@ -342,13 +346,13 @@ export function TransitMap({
             if (timeUntilMs > 0) {
                isPassed = false; // If the ETA is in the future, keep the circle bright!
             }
-
+            
+            // Text stays tied perfectly to the final buffered GPS math
             isTimePassed = isPassed; 
             
             const dateObj = new Date(s.ts * 1000);
             etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
           }
-
           return (
             <CircleMarker
               key={`stop-${shapeKey}-${i}`}
