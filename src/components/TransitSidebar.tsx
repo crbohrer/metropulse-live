@@ -189,26 +189,33 @@ export function TransitSidebar({
              return null; 
           }
 
-          // 🚨 THE TEMPORAL VETO 🚨
-          // 1. Always calculate the GPS distance first (WITH 50m BUFFER)
+          // 🚨 THE TEMPORAL VETO (SAFETY BUBBLE) 🚨
           let isPassed = false;
-          if (ghosted) {
-            const BUFFER = 0.05; // 50 meters
-            isPassed = isLineReversed 
-                ? along > (ghosted.vehicleAlong + BUFFER) 
-                : along < (ghosted.vehicleAlong - BUFFER);
-          }
 
-          // 2. Give the clock "Veto Power"
           if (typeof ts === "number") {
             const timeUntilMs = (ts * 1000) - Date.now();
+
             if (timeUntilMs > 0) {
-              // If the ETA is in the future, force it to stay on the list!
-              isPassed = false; 
+              isPassed = false; // ETA is in the future, it is upcoming!
+            } else {
+              // ETA has expired! Is the vehicle still sitting at the red light?
+              let drivenAway = true;
+              if (ghosted) {
+                // Check the absolute distance between the vehicle and the stop
+                const distDiff = Math.abs(along - ghosted.vehicleAlong);
+                if (distDiff < 0.05) { // 0.05 = 50-meter safety bubble
+                  drivenAway = false; 
+                }
+              }
+              // If the time expired and it left the 50m bubble, it is passed!
+              isPassed = drivenAway; 
             }
+          } else if (ghosted) {
+            // Fallback for stops with no live ETA data
+            isPassed = isLineReversed ? along > ghosted.vehicleAlong : along < ghosted.vehicleAlong;
           }
 
-          // Drop stale/passed stops from the sidebar completely
+          // Purge passed stops from the sidebar list
           if (isPassed) return null;
 
           return { name, sid, lat, lng, along, ts, properties: f.properties, validForDirection };
