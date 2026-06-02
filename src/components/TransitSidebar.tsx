@@ -173,45 +173,38 @@ export function TransitSidebar({
         }
 
         // 2. TERMINAL-SAFE RAIL DICTIONARY LOOKUP
-        if (!ts && liveEtas && (rawRid === "A" || rawRid === "B")) {
+        if (!ts && liveEtas && (rawRid === "A" || rawRid === "B" || rawRid === "S")) {
           const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
           const stationDict = RAIL_STATION_CODES[cleanName];
 
           if (stationDict) {
-            // FIX 1: Add northbound & southbound to the cast so Route B works!
-            const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound' | 'northbound' | 'southbound';
-            const primaryCode = stationDict[dirKey];
-            
-            // Smarter terminal fallback that handles both A (East/West) and B (North/South) routes!
-            const altCode = 
-              dirKey === 'eastbound' ? stationDict.westbound : 
-              dirKey === 'westbound' ? stationDict.eastbound :
-              dirKey === 'southbound' ? stationDict.northbound :
-              stationDict.southbound;
+            // THE ULTIMATE FIX: Ignore the compass bearing entirely!
+            // Just check if ANY of this station's dictionary codes exist in the vehicle's future ETAs.
+            const possibleCodes = Object.values(stationDict);
+            let foundMatch = false;
 
-            if (primaryCode) {
-              // Standard track check
-              if (typeof liveEtas[primaryCode] === "number") {
-                ts = liveEtas[primaryCode];
-              } 
-              // Terminal Fallback (e.g., Gilbert Rd switching tracks!)
-              else if (altCode && typeof liveEtas[altCode] === "number") {
-                ts = liveEtas[altCode];
+            for (const code of possibleCodes) {
+              // If the code exists in the live feed, grab the ETA and lock it in!
+              if (code && typeof liveEtas[code] === "number") {
+                ts = liveEtas[code];
+                foundMatch = true;
+                break;
               }
-            } else {
-              // Hide stops on the wrong side of a split track (e.g. Jefferson St)
+            }
+
+            // If the vehicle isn't broadcasting an ETA for this station, it's on the wrong side of the track.
+            if (!foundMatch) {
               validForDirection = false; 
             }
           } else {
-            // FIX 2: STRICT MODE! If it's a ghost station completely missing from the dictionary, ban it!
+            // STRICT MODE: Station isn't in the dictionary at all (Ghost stops)
             validForDirection = false;
           }
         }
 
-        // 🚨 FIX 3: THE KILL SWITCH 🚨
-        // Drop invalid split-track & ghost stations completely off the UI
+        // 🚨 THE KILL SWITCH 🚨
         if (!validForDirection) {
-           return null; // <-- USE THIS instead in TransitSidebar.tsx
+           return null;
         }
 
         return { name, sid, lat, lng, along, ts, properties: f.properties, validForDirection };
