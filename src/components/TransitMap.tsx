@@ -325,33 +325,36 @@ export function TransitMap({
           const [lng, lat] = coords;
           if (typeof lat !== "number" || typeof lng !== "number") return null;
 
-         let isPassed = false;
+          let isPassed = false;
           let etaLabel = "No live ETA";
           let isTimePassed = false;
 
-          // 1. Calculate GPS distance first (WITH A 50-METER BUFFER)
-          if (ghosted) {
-            const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
-            const BUFFER = 0.05; // 0.05 Kilometers = 50 Meters
-            
-            isPassed = isLineReversed 
-                ? stopAlong > (ghosted.vehicleAlong + BUFFER) 
-                : stopAlong < (ghosted.vehicleAlong - BUFFER);
-          }
-
-          // 2. Apply the Temporal Veto
           if (typeof s.ts === "number") {
             const timeUntilMs = (s.ts * 1000) - Date.now();
-            
+
             if (timeUntilMs > 0) {
-               isPassed = false; // If the ETA is in the future, keep the circle bright!
+               isPassed = false; 
+            } else {
+               let drivenAway = true;
+               if (ghosted) {
+                 const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
+                 const distDiff = Math.abs(stopAlong - ghosted.vehicleAlong);
+                 
+                 if (distDiff < 0.05) { // 50-meter safety bubble
+                   drivenAway = false;
+                 }
+               }
+               isPassed = drivenAway;
             }
-            
-            // Text stays tied perfectly to the final buffered GPS math
+
+            // Sync the text label directly to the final bubble calculation
             isTimePassed = isPassed; 
-            
             const dateObj = new Date(s.ts * 1000);
             etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+          } else if (ghosted) {
+            const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
+            isPassed = isLineReversed ? stopAlong > ghosted.vehicleAlong : stopAlong < ghosted.vehicleAlong;
           }
           return (
             <CircleMarker
