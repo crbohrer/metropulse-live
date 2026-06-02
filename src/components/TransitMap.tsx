@@ -325,7 +325,7 @@ export function TransitMap({
           const [lng, lat] = coords;
           if (typeof lat !== "number" || typeof lng !== "number") return null;
 
-          let isPassed = false;
+         let isPassed = false;
           let etaLabel = "No live ETA";
           let isTimePassed = false;
 
@@ -342,8 +342,9 @@ export function TransitMap({
             if (timeUntilMs > 0) {
                isPassed = false; // If the ETA is in the future, keep the circle bright!
             }
+
+            isTimePassed = isPassed; 
             
-            isTimePassed = timeUntilMs < 0; 
             const dateObj = new Date(s.ts * 1000);
             etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
           }
