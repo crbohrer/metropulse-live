@@ -174,6 +174,61 @@ export function TransitMap({
   const toLatLng = (coords: LngLat[]): [number, number][] =>
     coords.map(([lng, lat]) => [lat, lng]);
 
+  // 1. EXTRACTED KILL SWITCH: Find exactly which stops are valid for this trip
+  const processedStops = useMemo(() => {
+    return stops.map((f) => {
+      const name = (f.properties.stop_name as string) || (f.properties.StationName as string) || (f.properties.STATION as string) || (f.properties.Stop_Name as string) || (f.properties.StopName as string) || (f.properties.STOPNAME as string) || "Transit Stop";
+      const idCandidates = [f.properties.stop_id, f.properties.stop_code, f.properties.StationId, f.properties.NextRide, f.properties.PlatformID];
+      
+      let ts: number | null = null;
+      let validForDirection = true;
+
+      // Bus ETA Matching
+      for (const c of idCandidates) {
+        if (c == null) continue;
+        const cleanKey = String(c).trim();
+        const match = liveEtas?.[cleanKey] ?? liveEtas?.[cleanKey.replace(/^0+/, '')] ?? liveEtas?.[Number(cleanKey)];
+        if (typeof match === "number") {
+          ts = match;
+          break;
+        }
+      }
+
+      // Rail Dictionary Lookup
+      if (!ts && liveEtas && (rawRid === "A" || rawRid === "B" || rawRid === "S")) {
+        const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
+        const stationDict = RAIL_STATION_CODES[cleanName];
+
+        if (stationDict) {
+          const possibleCodes = Object.values(stationDict);
+          let foundMatch = false;
+          for (const code of possibleCodes) {
+            if (code && typeof liveEtas[code] === "number") {
+              ts = liveEtas[code];
+              foundMatch = true;
+              break;
+            }
+          }
+          if (!foundMatch) validForDirection = false;
+        } else {
+          validForDirection = false;
+        }
+      }
+
+      return { feature: f, ts, validForDirection, name };
+    }).filter(s => s.validForDirection); // Only keep the green lit stops!
+  }, [stops, liveEtas, rawRid]);
+
+  // 2. HELPER: Check if a track segment has any valid stops near it
+  const isLineValid = (line: LngLat[]) => {
+    if (processedStops.length === 0) return true; // Fallback if no ETAs yet
+    return processedStops.some(s => {
+      const coords = s.feature.geometry.coordinates as [number, number];
+      const nearest = nearestOnLines([line], coords);
+      return nearest && nearest.distSq <= (isRail ? 0.00002 : 0.00000004);
+    });
+  };
+
   return (
     <MapContainer
       center={TEMPE_CENTER}
@@ -190,160 +245,104 @@ export function TransitMap({
       <FlyToStop stop={focusedStop} />
 
       {ghosted ? (
-        <>
-          {routeLines.map((line, i) => {
-            if (i === ghosted.lineIndex) return null;
-            // Flip the opacity logic if the geometry is drawn in reverse!
-            const isPassedSegment = isLineReversed ? i > ghosted.lineIndex : i < ghosted.lineIndex;
-            return (
-              <Polyline
-                key={`other-${shapeKey}-${i}`}
-                positions={toLatLng(line)}
-                pathOptions={{
-                  color: activeColor,
-                  weight: isPassedSegment ? 4 : 7,
-                  opacity: isPassedSegment ? 0.3 : 1.0,
-                }}
-              />
-            );
-          })}
-          <Polyline
-            key={`passed-${shapeKey}`}
-            // Swap the ghosted arrays if traveling backwards
-            positions={toLatLng(isLineReversed ? ghosted.upcoming : ghosted.passed)}
-            pathOptions={{ color: activeColor, weight: 4, opacity: 0.3 }}
-          />
-          <Polyline
-            key={`upcoming-${shapeKey}`}
-            // Swap the ghosted arrays if traveling backwards
-            positions={toLatLng(isLineReversed ? ghosted.passed : ghosted.upcoming)}
-            pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
-          />
-        </>
-      ) : (
-        // No reliable snap (vehicle off-line / parallel return track) — render
-        // everything bright and solid; do NOT dim any segment.
-        <>
-          {routeLines.map((line, i) => (
+          <>
+            {routeLines.map((line, i) => {
+              if (i === ghosted.lineIndex) return null;
+              // Flip the opacity logic if the geometry is drawn in reverse!
+              const isPassedSegment = isLineReversed ? i > ghosted.lineIndex : i < ghosted.lineIndex;
+              const isValid = isLineValid(line);
+
+              return (
+                <Polyline
+                  key={`other-${shapeKey}-${i}`}
+                  positions={toLatLng(line)}
+                  pathOptions={{
+                    color: activeColor,
+                    // Dim the thickness and opacity if the track is dead
+                    weight: isValid ? (isPassedSegment ? 4 : 7) : 3,
+                    opacity: isValid ? (isPassedSegment ? 0.3 : 1.0) : 0.15,
+                  }}
+                />
+              );
+            })}
             <Polyline
-              key={`solid-${shapeKey}-${i}`}
-              positions={toLatLng(line)}
+              key={`passed-${shapeKey}`}
+              positions={toLatLng(isLineReversed ? ghosted.upcoming : ghosted.passed)}
+              pathOptions={{ color: activeColor, weight: 4, opacity: 0.3 }}
+            />
+            <Polyline
+              key={`upcoming-${shapeKey}`}
+              positions={toLatLng(isLineReversed ? ghosted.passed : ghosted.upcoming)}
               pathOptions={{ color: activeColor, weight: 7, opacity: 1.0 }}
             />
-          ))}
-        </>
-      )}
+          </>
+        ) : (
+          <>
+            {routeLines.map((line, i) => {
+              const isValid = isLineValid(line);
+              return (
+                <Polyline
+                  key={`solid-${shapeKey}-${i}`}
+                  positions={toLatLng(line)}
+                  pathOptions={{ 
+                    color: activeColor, 
+                    weight: isValid ? 7 : 3, 
+                    opacity: isValid ? 1.0 : 0.15 
+                  }}
+                />
+              );
+            })}
+          </>
+        )}
 
+        {/* 3. CLEAN RENDER: Iterate over our pre-processed valid stops! */}
+        {processedStops.map((s, i) => {
+          const coords = s.feature.geometry.coordinates as number[];
+          const [lng, lat] = coords;
+          if (typeof lat !== "number" || typeof lng !== "number") return null;
 
-      {stops.map((f, i) => {
-        const coords = f.geometry.coordinates as number[];
-        const [lng, lat] = coords;
-        if (typeof lat !== "number" || typeof lng !== "number") return null;
-
-        const name =
-          (f.properties.stop_name as string) ||
-          (f.properties.StationName as string) ||
-          (f.properties.STATION as string) ||
-          (f.properties.Stop_Name as string) ||
-          (f.properties.StopName as string) ||
-          (f.properties.STOPNAME as string) ||
-          "Transit Stop";
-
-        const idCandidates = [f.properties.stop_id, f.properties.stop_code, f.properties.StationId, f.properties.NextRide, f.properties.PlatformID];
-        
-        let ts: number | null = null;
-        let validForDirection = true;
-
-        // 1. BUS ETA MATCHING
-        for (const c of idCandidates) {
-          if (c == null) continue;
-          const cleanKey = String(c).trim();
-          const match = liveEtas?.[cleanKey] ?? liveEtas?.[cleanKey.replace(/^0+/, '')] ?? liveEtas?.[Number(cleanKey)];
-          if (typeof match === "number") { ts = match; break; }
-        }
-
-        // 2. TERMINAL-SAFE RAIL DICTIONARY LOOKUP
-        if (!ts && liveEtas && (rawRid === "A" || rawRid === "B" || rawRid === "S")) {
-          const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
-          const stationDict = RAIL_STATION_CODES[cleanName];
-
-          if (stationDict) {
-            // THE ULTIMATE FIX: Ignore the compass bearing entirely!
-            // Just check if ANY of this station's dictionary codes exist in the vehicle's future ETAs.
-            const possibleCodes = Object.values(stationDict);
-            let foundMatch = false;
-
-            for (const code of possibleCodes) {
-              // If the code exists in the live feed, grab the ETA and lock it in!
-              if (code && typeof liveEtas[code] === "number") {
-                ts = liveEtas[code];
-                foundMatch = true;
-                break;
-              }
-            }
-
-            // If the vehicle isn't broadcasting an ETA for this station, it's on the wrong side of the track.
-            if (!foundMatch) {
-              validForDirection = false; 
-            }
-          } else {
-            // STRICT MODE: Station isn't in the dictionary at all (Ghost stops)
-            validForDirection = false;
+          let isPassed = false;
+          if (ghosted) {
+            const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
+            isPassed = isLineReversed ? stopAlong > ghosted.vehicleAlong : stopAlong < ghosted.vehicleAlong;
           }
-        }
 
-        // 🚨 THE KILL SWITCH 🚨
-        if (!validForDirection) {
-           return null; 
-        }
+          let etaLabel = "No live ETA";
+          let isTimePassed = false;
 
-        let isPassed = false;
-        if (ghosted) {
-          const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
-          isPassed = isLineReversed ? stopAlong > ghosted.vehicleAlong : stopAlong < ghosted.vehicleAlong;
-        }
+          if (typeof s.ts === "number") {
+            const dateObj = new Date(s.ts * 1000);
+            etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+            isTimePassed = isPassed;
+          }
 
-        // 3. CLEAN ETA FORMATTING
-        let etaLabel = "No live ETA";
-        let isTimePassed = false;
-
-        if (typeof ts === "number") {
-          const dateObj = new Date(ts * 1000);
-          etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-          
-          isTimePassed = isPassed; 
-        }
-
-        return (
-          <CircleMarker
-            key={`stop-${shapeKey}-${i}`}
-            center={[lat, lng]}
-            radius={isPassed ? 4 : 6}
-            pathOptions={{
-              color: isPassed ? "#6b7280" : activeColor,
-              fillColor: "#0b0b15",
-              fillOpacity: isPassed ? 0.4 : 1,
-              weight: 2.5,
-              opacity: isPassed ? 0.45 : 1,
-            }}
-          >
-            <Popup>
-              <div className="space-y-1">
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {isPassed ? "Passed stop" : "Upcoming stop"}
+          return (
+            <CircleMarker
+              key={`stop-${shapeKey}-${i}`}
+              center={[lat, lng]}
+              radius={isPassed ? 4 : 6}
+              pathOptions={{
+                color: isPassed ? "#6b7280" : activeColor,
+                fillColor: "#0b0b15",
+                fillOpacity: isPassed ? 0.4 : 1,
+                weight: 2.5,
+                opacity: isPassed ? 0.45 : 1,
+              }}
+            >
+              <Popup>
+                <div className="space-y-1">
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                    {isPassed ? "Passed stop" : "Upcoming stop"}
+                  </div>
+                  <div className="text-sm font-semibold">{s.name}</div>
+                  <div className={`text-xs ${typeof s.ts === "number" ? (isTimePassed ? "text-amber-500 font-medium" : "text-emerald-500 font-medium") : "opacity-70"}`} suppressHydrationWarning>
+                    {isTimePassed ? `Passed at: ${etaLabel}` : `Live ETA: ${etaLabel}`}
+                  </div>
                 </div>
-                <div className="text-sm font-semibold">{name}</div>
-                <div
-                  className={`text-xs ${typeof ts === "number" ? (isTimePassed ? "text-amber-500 font-medium" : "text-emerald-500 font-medium") : "opacity-70"}`}
-                  suppressHydrationWarning
-                >
-                  {isTimePassed ? `Passed at: ${etaLabel}` : `Live ETA: ${etaLabel}`}
-                </div>
-              </div>
-            </Popup>
-          </CircleMarker>
-        );
-      })}
+              </Popup>
+            </CircleMarker>
+          );
+        })}
 
       {displayedVehicles.map((v) => (
         <Marker
