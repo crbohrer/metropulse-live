@@ -189,33 +189,16 @@ export function TransitSidebar({
              return null; 
           }
 
-          // 🚨 THE TEMPORAL VETO (SAFETY BUBBLE) 🚨
+          // 🚨 THE PURE SPATIAL CHECK (Matches Map Route) 🚨
           let isPassed = false;
-
-          if (typeof ts === "number") {
-            const timeUntilMs = (ts * 1000) - Date.now();
-
-            if (timeUntilMs > 0) {
-              isPassed = false; // ETA is in the future, it is upcoming!
-            } else {
-              // ETA has expired! Is the vehicle still sitting at the red light?
-              let drivenAway = true;
-              if (ghosted) {
-                // Check the absolute distance between the vehicle and the stop
-                const distDiff = Math.abs(along - ghosted.vehicleAlong);
-                if (distDiff < 0.05) { // 0.05 = 50-meter safety bubble
-                  drivenAway = false; 
-                }
-              }
-              // If the time expired and it left the 50m bubble, it is passed!
-              isPassed = drivenAway; 
-            }
-          } else if (ghosted) {
-            // Fallback for stops with no live ETA data
+          
+          if (ghosted) {
+            // Because isLineReversed perfectly handles the Streetcar loop now, 
+            // this single line of math is 100% accurate!
             isPassed = isLineReversed ? along > ghosted.vehicleAlong : along < ghosted.vehicleAlong;
           }
 
-          // Purge passed stops from the sidebar list
+          // Purge physically passed stops from the sidebar list immediately
           if (isPassed) return null;
 
           return { name, sid, lat, lng, along, ts, properties: f.properties, validForDirection };
