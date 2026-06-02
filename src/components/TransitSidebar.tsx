@@ -211,7 +211,7 @@ export function TransitSidebar({
         // 🚨 FIX 3: THE KILL SWITCH 🚨
         // Drop invalid split-track & ghost stations completely off the UI
         if (!validForDirection) {
-           continue; // <-- USE THIS instead in TransitSidebar.tsx
+           return null; // <-- USE THIS instead in TransitSidebar.tsx
         }
 
         return { name, sid, lat, lng, along, ts, properties: f.properties, validForDirection };
