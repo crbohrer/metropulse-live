@@ -189,13 +189,24 @@ export function TransitSidebar({
              return null; 
           }
 
-          // 🚨 THE API GUARANTEE & GEOMETRY FALLBACK 🚨
-          // If the server guarantees an ETA, it hasn't passed! 
-          // Only fall back to the GPS geometry if the ETA is completely missing.
-          if (typeof ts !== "number" && ghosted) {
-            const isPassed = isLineReversed ? along > ghosted.vehicleAlong : along < ghosted.vehicleAlong;
-            if (isPassed) return null;
+          // 🚨 THE TEMPORAL VETO 🚨
+          // 1. Always calculate the GPS distance first
+          let isPassed = false;
+          if (ghosted) {
+            isPassed = isLineReversed ? along > ghosted.vehicleAlong : along < ghosted.vehicleAlong;
           }
+
+          // 2. Give the clock "Veto Power"
+          if (typeof ts === "number") {
+            const timeUntilMs = (ts * 1000) - Date.now();
+            if (timeUntilMs > 0) {
+              // If the ETA is in the future, force it to stay on the list!
+              isPassed = false; 
+            }
+          }
+
+          // Drop stale/passed stops from the sidebar completely
+          if (isPassed) return null;
 
           return { name, sid, lat, lng, along, ts, properties: f.properties, validForDirection };
         })
