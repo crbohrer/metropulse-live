@@ -306,18 +306,25 @@ export function TransitMap({
           if (typeof lat !== "number" || typeof lng !== "number") return null;
 
           let isPassed = false;
-          if (ghosted) {
-            const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
-            isPassed = isLineReversed ? stopAlong > ghosted.vehicleAlong : stopAlong < ghosted.vehicleAlong;
-          }
-
           let etaLabel = "No live ETA";
           let isTimePassed = false;
 
           if (typeof s.ts === "number") {
+            // 1. Trust the absolute clock instead of the circular GPS!
+            const timeUntilMs = (s.ts * 1000) - Date.now();
+            
+            // If the ETA is more than 60 seconds in the past, it's passed. 
+            // If it's in the future, it forces the map to render it as upcoming.
+            isPassed = timeUntilMs < -60000;
+
             const dateObj = new Date(s.ts * 1000);
             etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
             isTimePassed = isPassed;
+            
+          } else if (ghosted) {
+            // 2. Only fallback to GPS distance math if the ETA API is missing
+            const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
+            isPassed = isLineReversed ? stopAlong > ghosted.vehicleAlong : stopAlong < ghosted.vehicleAlong;
           }
 
           return (
