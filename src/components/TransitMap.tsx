@@ -221,11 +221,15 @@ export function TransitMap({
 
   // 2. HELPER: Check if a track segment has any valid stops near it
   const isLineValid = (line: LngLat[]) => {
-    if (processedStops.length === 0) return true; // Fallback if no ETAs yet
+    if (processedStops.length === 0) return true; 
     return processedStops.some(s => {
       const coords = s.feature.geometry.coordinates as [number, number];
       const nearest = nearestOnLines([line], coords);
-      return nearest && nearest.distSq <= (isRail ? 0.00002 : 0.00000004);
+      
+      // THE FIX: Explicitly target the Streetcar (Route S) for the ultra-tight radius!
+      const threshold = rawRid === "S" ? 0.0000005 : (isRail ? 0.00002 : 0.00000004);
+      
+      return nearest && nearest.distSq <= threshold; 
     });
   };
 
