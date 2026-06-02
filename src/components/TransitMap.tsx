@@ -306,10 +306,12 @@ export function TransitMap({
         // 3. CLEAN ETA FORMATTING
         let etaLabel = "No live ETA";
         let isTimePassed = false;
+
         if (typeof ts === "number") {
           const dateObj = new Date(ts * 1000);
           etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-          isTimePassed = (ts * 1000 < Date.now() - 60000); 
+          
+          isTimePassed = isPassed; 
         }
 
         return (
