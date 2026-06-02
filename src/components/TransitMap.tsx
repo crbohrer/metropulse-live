@@ -219,18 +219,39 @@ export function TransitMap({
     }).filter(s => s.validForDirection); // Only keep the green lit stops!
   }, [stops, liveEtas, rawRid]);
 
-  // 2. HELPER: Check if a track segment has any valid stops near it
+  // 2. HELPER: The "Closest Stop Ownership" Fix
   const isLineValid = (line: LngLat[]) => {
     if (processedStops.length === 0) return true; 
-    return processedStops.some(s => {
-      const coords = s.feature.geometry.coordinates as [number, number];
-      const nearest = nearestOnLines([line], coords);
+    if (!line || line.length === 0) return false;
+
+    // 1. Grab a point from the exact middle of this track segment
+    const midIdx = Math.floor(line.length / 2);
+    const pt = line[midIdx];
+    
+    // Handle both array [lng, lat] and object {lng, lat} structures safely
+    const ptLng = Array.isArray(pt) ? pt[0] : (pt as any).lng ?? pt[0];
+    const ptLat = Array.isArray(pt) ? pt[1] : (pt as any).lat ?? pt[1];
+
+    if (typeof ptLng !== "number" || typeof ptLat !== "number") return true;
+
+    let closestName = "";
+    let minDistSq = Infinity;
+
+    // 2. Loop through ALL stops on the route to find its true owner
+    stops.forEach((f: any) => {
+      const coords = f.geometry?.coordinates;
+      if (!coords || typeof coords[0] !== "number") return;
       
-      // THE FIX: Explicitly target the Streetcar (Route S) for the ultra-tight radius!
-      const threshold = rawRid === "S" ? 0.0000005 : (isRail ? 0.00002 : 0.00000004);
-      
-      return nearest && nearest.distSq <= threshold; 
+      const distSq = Math.pow(coords[0] - ptLng, 2) + Math.pow(coords[1] - ptLat, 2);
+      if (distSq < minDistSq) {
+        minDistSq = distSq;
+        closestName = f.properties?.stop_name || f.properties?.StationName || f.properties?.STATION || f.properties?.Stop_Name || f.properties?.StopName || f.properties?.STOPNAME || "Transit Stop";
+      }
     });
+
+    // 3. If the closest stop is currently active, the track stays bright!
+    // If it belongs to a deleted ghost stop on Ash Ave, it dims!
+    return processedStops.some((ps) => ps.name === closestName);
   };
 
   return (
