@@ -310,19 +310,18 @@ export function TransitMap({
           let isTimePassed = false;
 
           if (typeof s.ts === "number") {
-            // 1. Trust the absolute clock instead of the circular GPS!
+            // 1. THE API GUARANTEE: If it has an ETA, it has physically not passed yet!
+            isPassed = false; 
+
+            // We still track the clock just to update the text color if it's running late
             const timeUntilMs = (s.ts * 1000) - Date.now();
-            
-            // If the ETA is more than 60 seconds in the past, it's passed. 
-            // If it's in the future, it forces the map to render it as upcoming.
-            isPassed = timeUntilMs < -60000;
+            isTimePassed = timeUntilMs < 0; 
 
             const dateObj = new Date(s.ts * 1000);
             etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-            isTimePassed = isPassed;
             
           } else if (ghosted) {
-            // 2. Only fallback to GPS distance math if the ETA API is missing
+            // 2. Fallback to GPS distance only if the API is missing data
             const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
             isPassed = isLineReversed ? stopAlong > ghosted.vehicleAlong : stopAlong < ghosted.vehicleAlong;
           }
