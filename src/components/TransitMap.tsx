@@ -329,32 +329,19 @@ export function TransitMap({
           let etaLabel = "No live ETA";
           let isTimePassed = false;
 
-          if (typeof s.ts === "number") {
-            const timeUntilMs = (s.ts * 1000) - Date.now();
-
-            if (timeUntilMs > 0) {
-               isPassed = false; 
-            } else {
-               let drivenAway = true;
-               if (ghosted) {
-                 const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
-                 const distDiff = Math.abs(stopAlong - ghosted.vehicleAlong);
-                 
-                 if (distDiff < 0.05) { // 50-meter safety bubble
-                   drivenAway = false;
-                 }
-               }
-               isPassed = drivenAway;
-            }
-
-            // Sync the text label directly to the final bubble calculation
-            isTimePassed = isPassed; 
-            const dateObj = new Date(s.ts * 1000);
-            etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-
-          } else if (ghosted) {
+          // 1. Trust the exact same spatial geometry that dims the route line!
+          if (ghosted) {
             const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
             isPassed = isLineReversed ? stopAlong > ghosted.vehicleAlong : stopAlong < ghosted.vehicleAlong;
+          }
+
+          // 2. Format the ETA text (but DO NOT let it veto the map math)
+          if (typeof s.ts === "number") {
+            const dateObj = new Date(s.ts * 1000);
+            etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+            
+            // Sync the text label permanently to the physical map state
+            isTimePassed = isPassed; 
           }
           return (
             <CircleMarker
