@@ -292,6 +292,7 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Downtown Phoenix Hub / Jefferson St": { eastbound: "9794" }, // Alias
 
   // Tempe Streetcar (Route S)
+  "Dorsey / Apache": { northbound: "9721", southbound: "9694" },
   "Dorsey Ln / Apache": { northbound: "9721", southbound: "9694" },
   "Dorsey Ln / Apache Blvd": { northbound: "9721", southbound: "9694" },
   
