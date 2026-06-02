@@ -112,8 +112,7 @@ export function TransitMap({
   // 1. NORMALIZE LIGHT RAIL DIRECTIONS
     const rawRid = activeVehicle?.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim() || "";
     let normalizedDir = activeVehicle?.direction || "";
-    const isRail = rawRid === "A" || rawRid === "B" || activeVehicle?.vehicle_type?.toLowerCase() === "rail";
-
+    const isRail = rawRid === "A" || rawRid === "B" || rawRid === "S" || activeVehicle?.vehicle_type?.toLowerCase() === "rail";
     if (rawRid === "A") {
       const dLower = normalizedDir.toLowerCase();
       normalizedDir = (dLower.includes("north") || dLower.includes("west")) ? "Westbound" : "Eastbound";
