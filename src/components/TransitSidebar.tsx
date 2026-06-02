@@ -134,92 +134,84 @@ export function TransitSidebar({
         }
 
         const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
-        
-        // 3. CORRECT "PASSED STOP" FILTERING
-        // Drop stops that are behind the vehicle based on the reversed geometry direction!
-        if (ghosted) {
-          const isPassed = isLineReversed ? along > ghosted.vehicleAlong : along < ghosted.vehicleAlong;
-          if (isPassed) return null;
-        }
+          const name = f.properties?.stop_name || f.properties?.StationName || "Transit Stop";
 
-        const name = f.properties?.stop_name || f.properties?.StationName || "Transit Stop";
-        
-        // 1. RESTORE FULL PLATFORM ID LOOKUPS
-        // This ensures the Mesa extension stations can expose their NextRide tracking codes!
-        const idCandidates = [
-          f.properties?.stop_id,
-          f.properties?.stop_code,
-          f.properties?.StationId,
-          f.properties?.NextRide,
-          f.properties?.PlatformID,
-          f.properties?.PlatformId,
-          f.properties?.platform_id,
-        ];
-        
-        const sid = String(idCandidates[0] ?? name);
-        let ts: number | null = null;
-        let validForDirection = true;
-        
-        
-        // STANDARD BUS ETA MATCHING
-        for (const c of idCandidates) {
-          if (c == null) continue;
-          const cleanKey = String(c).trim();
-          const match = liveEtas?.[cleanKey] ?? liveEtas?.[cleanKey.replace(/^0+/, '')] ?? liveEtas?.[Number(cleanKey)];
-          if (typeof match === "number") {
-            ts = match;
-            break;
+          // 1. RESTORE FULL PLATFORM ID LOOKUPS
+          const idCandidates = [
+            f.properties?.stop_id,
+            f.properties?.stop_code,
+            f.properties?.StationId,
+            f.properties?.NextRide,
+            f.properties?.PlatformID,
+            f.properties?.PlatformId,
+            f.properties?.platform_id,
+          ];
+          
+          const sid = String(idCandidates[0] ?? name);
+          let ts: number | null = null;
+          let validForDirection = true;
+
+          // STANDARD BUS ETA MATCHING
+          for (const c of idCandidates) {
+            if (c == null) continue;
+            const cleanKey = String(c).trim();
+            const match = liveEtas?.[cleanKey] ?? liveEtas?.[cleanKey.replace(/^0+/, '')] ?? liveEtas?.[Number(cleanKey)];
+            if (typeof match === "number") {
+              ts = match;
+              break;
+            }
           }
-        }
 
-        // 2. TERMINAL-SAFE RAIL DICTIONARY LOOKUP
-        if (!ts && liveEtas && (rawRid === "A" || rawRid === "B" || rawRid === "S")) {
-          const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
-          const stationDict = RAIL_STATION_CODES[cleanName];
+          // 2. TERMINAL-SAFE RAIL DICTIONARY LOOKUP
+          if (!ts && liveEtas && (rawRid === "A" || rawRid === "B" || rawRid === "S")) {
+            const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
+            const stationDict = RAIL_STATION_CODES[cleanName];
 
-          if (stationDict) {
-            // THE ULTIMATE FIX: Ignore the compass bearing entirely!
-            // Just check if ANY of this station's dictionary codes exist in the vehicle's future ETAs.
-            const possibleCodes = Object.values(stationDict);
-            let foundMatch = false;
+            if (stationDict) {
+              const possibleCodes = Object.values(stationDict);
+              let foundMatch = false;
 
-            for (const code of possibleCodes) {
-              // If the code exists in the live feed, grab the ETA and lock it in!
-              if (code && typeof liveEtas[code] === "number") {
-                ts = liveEtas[code];
-                foundMatch = true;
-                break;
+              for (const code of possibleCodes) {
+                if (code && typeof liveEtas[code] === "number") {
+                  ts = liveEtas[code];
+                  foundMatch = true;
+                  break;
+                }
               }
-            }
 
-            // If the vehicle isn't broadcasting an ETA for this station, it's on the wrong side of the track.
-            if (!foundMatch) {
-              validForDirection = false; 
+              if (!foundMatch) validForDirection = false; 
+            } else {
+              validForDirection = false;
             }
-          } else {
-            // STRICT MODE: Station isn't in the dictionary at all (Ghost stops)
-            validForDirection = false;
           }
-        }
 
-        // 🚨 THE KILL SWITCH 🚨
-        if (!validForDirection) {
-           return null;
-        }
+          // 🚨 THE KILL SWITCH 🚨
+          if (!validForDirection) {
+             return null; 
+          }
 
-        return { name, sid, lat, lng, along, ts, properties: f.properties, validForDirection };
-      })
-      .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null; properties: any; validForDirection: boolean } => {
-        if (!x) return false;
-        if (!x.validForDirection) return false;
-        
-        // Drop stops that the vehicle passed more than 60 seconds ago
-        if (x.ts && x.ts * 1000 < Date.now() - 60000) return false;
+          // 🚨 THE API GUARANTEE & GEOMETRY FALLBACK 🚨
+          // If the server guarantees an ETA, it hasn't passed! 
+          // Only fall back to the GPS geometry if the ETA is completely missing.
+          if (typeof ts !== "number" && ghosted) {
+            const isPassed = isLineReversed ? along > ghosted.vehicleAlong : along < ghosted.vehicleAlong;
+            if (isPassed) return null;
+          }
 
-        if (seenNames.has(x.name)) return false;
-        seenNames.add(x.name);
-        return true;
-      })
+          return { name, sid, lat, lng, along, ts, properties: f.properties, validForDirection };
+        })
+        .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null; properties: any; validForDirection: boolean } => {
+          if (!x) return false;
+          if (!x.validForDirection) return false;
+          
+          // The Date.now() clock check has been completely removed!
+          // If the stop made it here with a live ETA, it is guaranteed to be valid.
+
+          if (seenNames.has(x.name)) return false;
+          seenNames.add(x.name);
+          return true;
+        })
+    
       .sort((a, b) => {
         // 1. CHRONOLOGICAL ORDER IS KING
         // If both have live ETAs, sort them exactly as they will arrive in real life.
