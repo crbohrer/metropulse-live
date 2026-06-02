@@ -221,10 +221,19 @@ export function TransitSidebar({
         return true;
       })
       .sort((a, b) => {
-        // 1. Chronological order is king
-        if (a.ts && b.ts) return a.ts - b.ts;
+        // 1. CHRONOLOGICAL ORDER IS KING
+        // If both have live ETAs, sort them exactly as they will arrive in real life.
+        if (typeof a.ts === "number" && typeof b.ts === "number") {
+          return a.ts - b.ts;
+        }
         
-        // 2. Fallback geometry sequence sorting
+        // 2. THE LIVE OVERRIDE
+        // If one stop has a live ETA and the other doesn't, the live one MUST win!
+        // This prevents dead loop geometry from scrambling the timeline.
+        if (typeof a.ts === "number") return -1;
+        if (typeof b.ts === "number") return 1;
+        
+        // 3. FALLBACK GEOMETRY SEQUENCE (For vehicles missing ETA data)
         const seqA = a.properties?.stop_sequence ?? a.properties?.Sequence ?? a.properties?.SequenceNum ?? 0;
         const seqB = b.properties?.stop_sequence ?? b.properties?.Sequence ?? b.properties?.SequenceNum ?? 0;
     
@@ -232,7 +241,7 @@ export function TransitSidebar({
           return isLineReversed ? seqB - seqA : seqA - seqB;
         }
     
-        // 3. Fallback spatial sorting
+        // 4. FALLBACK SPATIAL SORTING
         // Eastbound tracks backwards (100 -> 0), so LARGER distances are closer/upcoming
         return isLineReversed ? b.along - a.along : a.along - b.along;
       });
