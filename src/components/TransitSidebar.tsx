@@ -190,10 +190,13 @@ export function TransitSidebar({
           }
 
           // 🚨 THE TEMPORAL VETO 🚨
-          // 1. Always calculate the GPS distance first
+          // 1. Always calculate the GPS distance first (WITH 50m BUFFER)
           let isPassed = false;
           if (ghosted) {
-            isPassed = isLineReversed ? along > ghosted.vehicleAlong : along < ghosted.vehicleAlong;
+            const BUFFER = 0.05; // 50 meters
+            isPassed = isLineReversed 
+                ? along > (ghosted.vehicleAlong + BUFFER) 
+                : along < (ghosted.vehicleAlong - BUFFER);
           }
 
           // 2. Give the clock "Veto Power"
