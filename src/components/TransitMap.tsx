@@ -302,7 +302,6 @@ export function TransitMap({
         // Drop invalid split-track & ghost stations completely off the UI
         if (!validForDirection) {
            return null; // <-- USE THIS in TransitMap.tsx
-           // continue; // <-- USE THIS instead if you are in TransitSidebar.tsx!
         }
 
         // Drop invalid split-track stations off the map completely
