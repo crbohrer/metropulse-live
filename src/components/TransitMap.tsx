@@ -304,9 +304,6 @@ export function TransitMap({
            return null; // <-- USE THIS in TransitMap.tsx
         }
 
-        // Drop invalid split-track stations off the map completely
-        if (!validForDirection) return null;
-
         let isPassed = false;
         if (ghosted) {
           const stopAlong = alongDistance(ghosted.chosen, [lng, lat]);
