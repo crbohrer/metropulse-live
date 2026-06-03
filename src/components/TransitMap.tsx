@@ -336,8 +336,15 @@ export function TransitMap({
             isPassed = isLineReversed ? stopAlong > ghosted.vehicleAlong : stopAlong < ghosted.vehicleAlong;
           }
 
-          // 2. Format the ETA text (but DO NOT let it veto the map math)
+          // 2. The Stale API Purge & Formatting
           if (typeof s.ts === "number") {
+            const timeUntilMs = (s.ts * 1000) - Date.now();
+            
+            // If the ETA is >3 minutes old, force the circle to dim to gray
+            if (timeUntilMs < -180000) { 
+              isPassed = true;
+            }
+
             const dateObj = new Date(s.ts * 1000);
             etaLabel = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
             
