@@ -193,18 +193,21 @@ export function TransitSidebar({
              return null; 
           }
 
-          // 🚨 THE PURE SPATIAL CHECK (Matches Map Route) 🚨
+         // 1. Calculate GPS distance
           let isPassed = false;
-          
           if (ghosted) {
             isPassed = isLineReversed ? along > ghosted.vehicleAlong : along < ghosted.vehicleAlong;
           }
 
-          // 🚨 THE STALE API PURGE 🚨
-          // If Valley Metro leaves a zombie ETA in the feed that is >3 minutes old, kill it!
+          // 2. THE OVERRIDE: If the ETA is in the future, it CANNOT be passed!
           if (typeof ts === "number") {
              const timeUntilMs = (ts * 1000) - Date.now();
-             if (timeUntilMs < -180000) { 
+             
+             if (timeUntilMs > 0) {
+               // Absolute veto: force it to be upcoming
+               isPassed = false; 
+             } else if (timeUntilMs < -180000) { 
+               // Stale API Purge (older than 3 mins)
                isPassed = true;
              }
           }
