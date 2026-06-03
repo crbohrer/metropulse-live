@@ -241,7 +241,7 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Gilbert Rd / Main St": { eastbound: "9763", westbound: "9762" },
 
   // Northwest Extension
-  "Metro Parkway": { southbound: "9773", northbound: "9773" }, // Terminal station uses 9773
+  "Metro Parkway": { southbound: "9773", northbound: "9774" }, // Terminal station uses 9773
   "Mountain View / 25th Ave": { southbound: "6660", northbound: "9776" },
   "25th Ave / Dunlap": { southbound: "6658", northbound: "9777" },
 
