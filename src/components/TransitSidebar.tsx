@@ -197,15 +197,14 @@ export function TransitSidebar({
                 }
               }
 
-              // THE FIX: Only strictly delete the stop if it's the Streetcar!
-              // We want to keep Route A and Route B stops even if their ETA hasn't generated yet.
+              // ... inside your stationDict check ...
               if (!foundMatch && rawRid === "S") {
                 validForDirection = false;
               }
             } else {
-              if (rawRid === "S") {
-                validForDirection = false;
-              }
+              // THE FIX: If the station name doesn't exist in our dictionary at all, 
+              // it's a retired stop! Kill it for Route A, B, and S.
+              validForDirection = false; 
             }
           }
 
