@@ -165,8 +165,15 @@ export function TransitSidebar({
 
       // Rail Dictionary Lookup
           // Allow Route A and Route B to use the Station Code Name lookup if their property IDs fail!
+          // Rail Dictionary Lookup
           if (!ts && liveEtas && (rawRid === "A" || rawRid === "B" || rawRid === "S")) {
-            const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
+            // THE FIX: Standardize sashes, hyphens, and spaces so it matches perfectly
+            const cleanName = name
+              .replace(" Station", "")
+              .replace(" Stn", "")
+              .replace(/\s*[\/\-]\s*/g, " / ") // Converts "Ln-Apache" or "Ln/Apache" directly to "Ln / Apache"
+              .trim();
+              
             const stationDict = RAIL_STATION_CODES[cleanName];
 
             if (stationDict) {
