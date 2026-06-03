@@ -151,18 +151,16 @@ export function TransitMap({
     const baseStops = filterRouteStops(routeStops, activeVehicle) as GeoJSONFeature[];
 
     // SPATIAL FILTER: only keep stops physically on the drawn route line.
-    // Applied to all modes — keeps the itinerary clean for buses too.
-    if (routeLines.length === 0) return baseStops;
-    
-    return baseStops.filter((f) => {
-      const coords = f.geometry.coordinates as [number, number];
-      const nearest = nearestOnLines(routeLines, coords);
-      
-      // Dynamic threshold: ~400m for Rail to catch offset Hub stops, ultra-strict for buses!
-      const threshold = isRail ? 0.00002 : 0.00000004;
-      
-      return nearest && nearest.distSq <= threshold;
-    });
+          if (routeLines.length === 0) return baseStops;
+          return baseStops.filter((f) => {
+            const coords = f.geometry.coordinates as [number, number];
+            const nearest = nearestOnLines(routeLines, coords);
+            
+            // THE FIX: Tighten the threshold here too so the map dots match the sidebar!
+            const threshold = isRail ? 0.0000005 : 0.00000004;
+            
+            return nearest && nearest.distSq <= threshold;
+          });
   }, [isRouteViewActive, routeStops, activeVehicle, routeLines]);
 
   const toLatLng = (coords: LngLat[]): [number, number][] =>
