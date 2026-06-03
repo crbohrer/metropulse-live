@@ -209,9 +209,13 @@ export function TransitMap({
               break;
             }
           }
-          if (!foundMatch) validForDirection = false;
+          
+          // THE FIX: Only strictly delete the stop if it's the Streetcar!
+          // We want to keep Route A and Route B stops even if their ETA hasn't generated yet.
+          if (!foundMatch && rawRid === "S") validForDirection = false; 
+          
         } else {
-          validForDirection = false;
+          if (rawRid === "S") validForDirection = false;
         }
       }
 
