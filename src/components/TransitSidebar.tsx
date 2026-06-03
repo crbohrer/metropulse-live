@@ -193,14 +193,20 @@ export function TransitSidebar({
           let isPassed = false;
           
           if (ghosted) {
-            // Because isLineReversed perfectly handles the Streetcar loop now, 
-            // this single line of math is 100% accurate!
             isPassed = isLineReversed ? along > ghosted.vehicleAlong : along < ghosted.vehicleAlong;
+          }
+
+          // 🚨 THE STALE API PURGE 🚨
+          // If Valley Metro leaves a zombie ETA in the feed that is >3 minutes old, kill it!
+          if (typeof ts === "number") {
+             const timeUntilMs = (ts * 1000) - Date.now();
+             if (timeUntilMs < -180000) { 
+               isPassed = true;
+             }
           }
 
           // Purge physically passed stops from the sidebar list immediately
           if (isPassed) return null;
-
           return { name, sid, lat, lng, along, ts, properties: f.properties, validForDirection };
         })
         .filter((x): x is { name: string; sid: string; lat: number; lng: number; along: number; ts: number | null; properties: any; validForDirection: boolean } => {
