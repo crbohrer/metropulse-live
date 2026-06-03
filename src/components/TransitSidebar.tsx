@@ -135,11 +135,7 @@ export function TransitSidebar({
         }
 
         const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
-          const name = f.properties?.stop_name || f.properties?.StationName || "Transit Stop";
-        // 🚨 RETIREMENT HARD-BLOCK: Only drop Dorsey if it is on the Light Rail (Route A or B)
-          if ((rawRid === "A") && name.includes("Dorsey")) {
-            validForDirection = false;
-          }
+        const name = f.properties?.stop_name || f.properties?.StationName || "Transit Stop";
 
           // 1. RESTORE FULL PLATFORM ID LOOKUPS
           const idCandidates = [
@@ -155,6 +151,10 @@ export function TransitSidebar({
           const sid = String(idCandidates[0] ?? name);
           let ts: number | null = null;
           let validForDirection = true;
+        // 🚨 RETIREMENT HARD-BLOCK: Only drop Dorsey if it is on the Light Rail (Route A or B)
+          if ((rawRid === "A") && name.includes("Dorsey")) {
+            validForDirection = false;
+          }
 
           // STANDARD BUS ETA MATCHING
           for (const c of idCandidates) {
