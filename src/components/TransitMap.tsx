@@ -275,8 +275,20 @@ export function TransitMap({
           <>
             {routeLines.map((line, i) => {
               if (i === ghosted.lineIndex) return null;
-              // Flip the opacity logic if the geometry is drawn in reverse!
-              const isPassedSegment = isLineReversed ? i > ghosted.lineIndex : i < ghosted.lineIndex;
+
+              // 1. Grab the physical midpoint of this specific track segment
+              const midIdx = Math.floor(line.length / 2);
+              const pt = line[midIdx];
+              const ptLng = Array.isArray(pt) ? pt[0] : (pt as any).lng ?? pt[0];
+              const ptLat = Array.isArray(pt) ? pt[1] : (pt as any).lat ?? pt[1];
+
+              // 2. THE FIX: Stop relying on messy array indices! 
+              // Calculate the exact physical distance of this track segment.
+              const segmentAlong = alongDistance(ghosted.chosen, [ptLng, ptLat]);
+              const isPassedSegment = isLineReversed 
+                ? segmentAlong > ghosted.vehicleAlong 
+                : segmentAlong < ghosted.vehicleAlong;
+              
               const isValid = isLineValid(line);
 
               return (
