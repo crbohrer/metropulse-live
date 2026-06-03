@@ -91,18 +91,25 @@ export function TransitSidebar({
   const upcomingStops = useMemo(() => {
     if (!isRouteViewActive || !activeVehicle) return [];
     
-    // 1. USE EXACT API DIRECTION
-        // Stop forcing the direction! Trust the raw API string so it perfectly matches the GTFS data.
+   // 1. NORMALIZE LIGHT RAIL DIRECTIONS
         const rawRid = activeVehicle?.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim() || "";
-        const normalizedDir = activeVehicle?.direction || "";
+        let normalizedDir = activeVehicle?.direction || "";
         const isRail = rawRid === "A" || rawRid === "B" || rawRid === "S" || activeVehicle?.vehicle_type?.toLowerCase() === "rail";
 
-        // 2. IDENTIFY REVERSED GEOMETRY
-        // We inverted reality in the last patch! Route B Northbound is NOT reversed. 
-        // Southbound (and Eastbound) tracks are the ones drawn backwards (100 -> 0).
         const dLower = normalizedDir.toLowerCase();
-        const isEastOrSouth = dLower.includes("east") || dLower.includes("south");
-        const isLineReversed = (rawRid === "A" && isEastOrSouth) || (rawRid === "B" && isEastOrSouth);
+
+        // 🚨 THE BOUNCER: Force Valley Metro's chaotic API strings into strict physical tracks!
+        if (rawRid === "A") {
+           // Route A is East/West. If the API says "North", force it West.
+           normalizedDir = (dLower.includes("west") || dLower.includes("north")) ? "Westbound" : "Eastbound";
+        } else if (rawRid === "B") {
+           // Route B is North/South. If the API says "East" (Baseline), force it South!
+           normalizedDir = (dLower.includes("south") || dLower.includes("east")) ? "Southbound" : "Northbound";
+        }
+
+        // 2. IDENTIFY REVERSED GEOMETRY
+        // The raw map data draws Eastbound and Southbound tracks completely backwards (100 -> 0).
+        const isLineReversed = (rawRid === "A" && normalizedDir === "Eastbound") || (rawRid === "B" && normalizedDir === "Southbound");
     const lines = getActiveRouteLines(
       routeShape,
       normalizedDir, 
