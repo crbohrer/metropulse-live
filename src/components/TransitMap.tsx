@@ -218,6 +218,7 @@ export function TransitMap({
             // Kill the map circle for retired/closed stations across all lines
             validForDirection = false;
           }
+        }
 
       return { feature: f, ts, validForDirection, name };
     }).filter(s => s.validForDirection); // Only keep the green lit stops!
