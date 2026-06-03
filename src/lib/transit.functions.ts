@@ -273,6 +273,7 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   // Note: Southbound physically skips Lincoln and goes straight to Buckeye!
 
   // South Central Extension (Route B)
+   "Lincoln / 1st Ave": { southbound: "9775" },
   "Buckeye / Central Ave": { southbound: "9788", northbound: "9789" },
   "Pioneer / Central Ave": { southbound: "9786", northbound: "9787" },
   "Broadway / Central Ave": { southbound: "9799", northbound: "9800" },
