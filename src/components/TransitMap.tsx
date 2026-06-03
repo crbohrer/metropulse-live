@@ -109,24 +109,18 @@ export function TransitMap({
     ? vehicles.filter((v) => v.id === activeVehicle.id)
     : vehicles;
 
-  // 1. NORMALIZE LIGHT RAIL DIRECTIONS
-    const rawRid = activeVehicle?.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim() || "";
-    let normalizedDir = activeVehicle?.direction || "";
-    const isRail = rawRid === "A" || rawRid === "B" || rawRid === "S" || activeVehicle?.vehicle_type?.toLowerCase() === "rail";
-    if (rawRid === "A") {
-      const dLower = normalizedDir.toLowerCase();
-      normalizedDir = (dLower.includes("north") || dLower.includes("west")) ? "Westbound" : "Eastbound";
-    } else if (rawRid === "B") {
-      const dLower = normalizedDir.toLowerCase();
-      // Route B is the North/South corridor!
-      normalizedDir = (dLower.includes("east") || dLower.includes("south")) ? "Southbound" : "Northbound";
-    }
+ // 1. USE EXACT API DIRECTION
+        // Stop forcing the direction! Trust the raw API string so it perfectly matches the GTFS data.
+        const rawRid = activeVehicle?.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim() || "";
+        const normalizedDir = activeVehicle?.direction || "";
+        const isRail = rawRid === "A" || rawRid === "B" || rawRid === "S" || activeVehicle?.vehicle_type?.toLowerCase() === "rail";
 
-    // 2. IDENTIFY REVERSED GEOMETRY
-    // Route A geometry is Mesa(0) to Phoenix(100), so Eastbound travels backwards.
-    // 2. IDENTIFY REVERSED GEOMETRY
-    // Route B geometry is actually North(0) to South(100), so Northbound travels backwards!
-    const isLineReversed = (rawRid === "A" && normalizedDir === "Eastbound") || (rawRid === "B" && normalizedDir === "Northbound");
+        // 2. IDENTIFY REVERSED GEOMETRY
+        // We inverted reality in the last patch! Route B Northbound is NOT reversed. 
+        // Southbound (and Eastbound) tracks are the ones drawn backwards (100 -> 0).
+        const dLower = normalizedDir.toLowerCase();
+        const isEastOrSouth = dLower.includes("east") || dLower.includes("south");
+        const isLineReversed = (rawRid === "A" && isEastOrSouth) || (rawRid === "B" && isEastOrSouth);
   const icons = useMemo(
     () => ({
       bus: buildIcon("bus"),
