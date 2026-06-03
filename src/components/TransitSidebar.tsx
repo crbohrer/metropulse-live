@@ -136,6 +136,10 @@ export function TransitSidebar({
 
         const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
           const name = f.properties?.stop_name || f.properties?.StationName || "Transit Stop";
+        // 🚨 RETIREMENT HARD-BLOCK: Only drop Dorsey if it is on the Light Rail (Route A or B)
+          if ((rawRid === "A") && name.includes("Dorsey")) {
+            return null;
+          }
 
           // 1. RESTORE FULL PLATFORM ID LOOKUPS
           const idCandidates = [
