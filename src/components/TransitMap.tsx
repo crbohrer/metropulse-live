@@ -109,25 +109,23 @@ export function TransitMap({
     ? vehicles.filter((v) => v.id === activeVehicle.id)
     : vehicles;
 
- // 1. NORMALIZE LIGHT RAIL DIRECTIONS
+ // 1. NORMALIZE TRANSIT DIRECTIONS
         const rawRid = activeVehicle?.route_id.replace("Route", "").split("·")[0].split(" · ")[0].trim() || "";
         let normalizedDir = activeVehicle?.direction || "";
         const isRail = rawRid === "A" || rawRid === "B" || rawRid === "S" || activeVehicle?.vehicle_type?.toLowerCase() === "rail";
-
         const dLower = normalizedDir.toLowerCase();
 
-        // 🚨 THE BOUNCER: Force Valley Metro's chaotic API strings into strict physical tracks!
+        // Force chaotic rail strings into strict physical tracks
         if (rawRid === "A") {
-           // Route A is East/West. If the API says "North", force it West.
-           normalizedDir = (dLower.includes("west") || dLower.includes("north")) ? "Westbound" : "Eastbound";
+          normalizedDir = (dLower.includes("west") || dLower.includes("north")) ? "Westbound" : "Eastbound";
         } else if (rawRid === "B") {
-           // Route B is North/South. If the API says "East" (Baseline), force it South!
-           normalizedDir = (dLower.includes("south") || dLower.includes("east")) ? "Southbound" : "Northbound";
+          normalizedDir = (dLower.includes("south") || dLower.includes("east")) ? "Southbound" : "Northbound";
         }
 
-        // 2. IDENTIFY REVERSED GEOMETRY
-        // The raw map data draws Eastbound and Southbound tracks completely backwards (100 -> 0).
-        const isLineReversed = (rawRid === "A" && normalizedDir === "Eastbound") || (rawRid === "B" && normalizedDir === "Southbound");
+        // 2. IDENTIFY REVERSED GEOMETRY (Universal Check)
+        // If the route's base geometry line is drawn from North->South or West->East, 
+        // traveling Northbound or Westbound means we are moving backward along the array index sequence!
+        const isLineReversed = dLower.includes("north") || dLower.includes("west") || (rawRid === "A" && normalizedDir === "Eastbound");
   const icons = useMemo(
     () => ({
       bus: buildIcon("bus"),
@@ -164,7 +162,7 @@ export function TransitMap({
             const nearest = nearestOnLines(routeLines, coords);
             
             // THE FIX: Tighten the threshold here too so the map dots match the sidebar!
-            const threshold = isRail ? 0.0000005 : 0.00000004;
+            const threshold = isRail ? 0.0000005 : 0.0000005;
             
             return nearest && nearest.distSq <= threshold;
           });
