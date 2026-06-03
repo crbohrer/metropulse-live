@@ -219,39 +219,42 @@ export function TransitMap({
     }).filter(s => s.validForDirection); // Only keep the green lit stops!
   }, [stops, liveEtas, rawRid]);
 
-  // 2. HELPER: The "Closest Stop Ownership" Fix
+  // 2. HELPER: The "Closest Stop Ownership" Fix (RESTRICTED TO STREETCAR)
   const isLineValid = (line: LngLat[]) => {
-    if (processedStops.length === 0) return true; 
+    if (processedStops.length === 0) return true;
     if (!line || line.length === 0) return false;
 
-    // 1. Grab a point from the exact middle of this track segment
-    const midIdx = Math.floor(line.length / 2);
-    const pt = line[midIdx];
-    
-    // Handle both array [lng, lat] and object {lng, lat} structures safely
-    const ptLng = Array.isArray(pt) ? pt[0] : (pt as any).lng ?? pt[0];
-    const ptLat = Array.isArray(pt) ? pt[1] : (pt as any).lat ?? pt[1];
+    // 1. TEMPE STREETCAR (Route S) gets the Voronoi math to handle its parallel loop!
+    if (rawRid === "S") {
+      const midIdx = Math.floor(line.length / 2);
+      const pt = line[midIdx];
+      const ptLng = Array.isArray(pt) ? pt[0] : (pt as any).lng ?? pt[0];
+      const ptLat = Array.isArray(pt) ? pt[1] : (pt as any).lat ?? pt[1];
 
-    if (typeof ptLng !== "number" || typeof ptLat !== "number") return true;
+      if (typeof ptLng !== "number" || typeof ptLat !== "number") return true;
 
-    let closestName = "";
-    let minDistSq = Infinity;
+      let closestName = "";
+      let minDistSq = Infinity;
+      stops.forEach((f: any) => {
+        const coords = f.geometry?.coordinates;
+        if (!coords || typeof coords[0] !== "number") return;
+        const distSq = Math.pow(coords[0] - ptLng, 2) + Math.pow(coords[1] - ptLat, 2);
+        if (distSq < minDistSq) {
+          minDistSq = distSq;
+          closestName = f.properties?.stop_name || f.properties?.StationName || f.properties?.STATION || f.properties?.Stop_Name || f.properties?.StopName || f.properties?.STOPNAME || "Transit Stop";
+        }
+      });
+      return processedStops.some((ps) => ps.name === closestName);
+    }
 
-    // 2. Loop through ALL stops on the route to find its true owner
-    stops.forEach((f: any) => {
-      const coords = f.geometry?.coordinates;
-      if (!coords || typeof coords[0] !== "number") return;
-      
-      const distSq = Math.pow(coords[0] - ptLng, 2) + Math.pow(coords[1] - ptLat, 2);
-      if (distSq < minDistSq) {
-        minDistSq = distSq;
-        closestName = f.properties?.stop_name || f.properties?.StationName || f.properties?.STATION || f.properties?.Stop_Name || f.properties?.StopName || f.properties?.STOPNAME || "Transit Stop";
-      }
+    // 2. BUSES & LIGHT RAIL (Routes A & B) go back to the reliable search radius!
+    // They don't have parallel overlapping tracks, so we don't want to shatter them.
+    return processedStops.some(s => {
+      const coords = s.feature.geometry.coordinates as [number, number];
+      const nearest = nearestOnLines([line], coords);
+      const threshold = isRail ? 0.00002 : 0.00000004;
+      return nearest && nearest.distSq <= threshold;
     });
-
-    // 3. If the closest stop is currently active, the track stays bright!
-    // If it belongs to a deleted ghost stop on Ash Ave, it dims!
-    return processedStops.some((ps) => ps.name === closestName);
   };
 
   return (
