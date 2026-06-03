@@ -211,12 +211,13 @@ export function TransitMap({
           
           // THE FIX: Only strictly delete the stop if it's the Streetcar!
           // We want to keep Route A and Route B stops even if their ETA hasn't generated yet.
-          if (!foundMatch && rawRid === "S") validForDirection = false; 
-          
-        } else {
-          if (rawRid === "S") validForDirection = false;
-        }
-      }
+            if (!foundMatch && rawRid === "S") {
+              validForDirection = false;
+            }
+          } else {
+            // Kill the map circle for retired/closed stations across all lines
+            validForDirection = false;
+          }
 
       return { feature: f, ts, validForDirection, name };
     }).filter(s => s.validForDirection); // Only keep the green lit stops!
