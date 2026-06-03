@@ -123,7 +123,7 @@ export function TransitSidebar({
         if (lines.length > 0) {
           const nearest = nearestOnLines(lines, [lng, lat]);
           // Give Rail a ~400m spatial buffer to catch Central Ave across the street! Buses stay strict.
-          const threshold = isRail ? 0.00002 : 0.00000004;
+          const threshold = isRail ? 0.0000005 : 0.00000004;
           if (!nearest || nearest.distSq > threshold) return null;
         }
 
