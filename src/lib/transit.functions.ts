@@ -279,7 +279,7 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Broadway / Central Ave": { southbound: "9799", northbound: "9800" },
   "Roeser / Central Ave": { southbound: "9784", northbound: "9785" },
   "Southern / Central Ave": { southbound: "9782", northbound: "9783" },
-  "Baseline / Central Ave": { southbound: "9781", northbound: "9781" },
+  "Baseline / Central Ave": { southbound: "9780", northbound: "9781" },
 
   // Route A Terminals (East/West)
   "Downtown Phx Hub / Washington": { westbound: "9795" },
