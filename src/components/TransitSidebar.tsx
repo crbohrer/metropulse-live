@@ -164,20 +164,30 @@ export function TransitSidebar({
           }
 
           // Rail Dictionary Lookup
-      if (!ts && liveEtas && (rawRid === "A" || rawRid === "B" || rawRid === "S")) {
-        const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
-        const stationDict = RAIL_STATION_CODES[cleanName];
+      // Allow Route A and Route B to use the Station Code Name lookup if their property IDs fail!
+if (!ts && liveEtas && (rawRid === "A" || rawRid === "B" || rawRid === "S")) {
+  const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
+  const stationDict = RAIL_STATION_CODES[cleanName];
 
-        if (stationDict) {
-          const possibleCodes = Object.values(stationDict);
-          let foundMatch = false;
-          for (const code of possibleCodes) {
-            if (code && typeof liveEtas[code] === "number") {
-              ts = liveEtas[code];
-              foundMatch = true;
-              break;
-            }
-          }
+  if (stationDict) {
+    // Determine the direction key dynamically to prevent bleeding
+    const dirKey = normalizedDir.toLowerCase() as 'eastbound' | 'westbound' | 'northbound' | 'southbound';
+    const specificCode = stationDict[dirKey];
+
+    if (specificCode && typeof liveEtas[specificCode] === "number") {
+      ts = liveEtas[specificCode];
+    } else {
+      // Fall back to checking all possible keys inside this station sub-object
+      const possibleCodes = Object.values(stationDict);
+      for (const code of possibleCodes) {
+        if (code && typeof liveEtas[code] === "number") {
+          ts = liveEtas[code];
+          break;
+        }
+      }
+    }
+  }
+}
           
           // THE FIX: Only strictly delete the stop if it's the Streetcar!
           // We want to keep Route A and Route B stops even if their ETA hasn't generated yet.
