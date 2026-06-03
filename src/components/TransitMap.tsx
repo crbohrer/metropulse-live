@@ -248,7 +248,10 @@ export function TransitMap({
     return processedStops.some(s => {
       const coords = s.feature.geometry.coordinates as [number, number];
       const nearest = nearestOnLines([line], coords);
-      const threshold = isRail ? 0.00002 : 0.00000004;
+      
+      // THE FIX: Keep the track dimming threshold perfectly consistent with the stops!
+      const threshold = isRail ? 0.0000005 : 0.00000004;
+      
       return nearest && nearest.distSq <= threshold;
     });
   };
