@@ -177,6 +177,10 @@ export function TransitMap({
   const processedStops = useMemo(() => {
     return stops.map((f) => {
       const name = (f.properties.stop_name as string) || (f.properties.StationName as string) || (f.properties.STATION as string) || (f.properties.Stop_Name as string) || (f.properties.StopName as string) || (f.properties.STOPNAME as string) || "Transit Stop";
+      // 🚨 RETIREMENT HARD-BLOCK: Only drop Dorsey if it is on the Light Rail (Route A or B)
+      if ((rawRid === "A") && name.includes("Dorsey")) {
+        return null;
+      }
       const idCandidates = [f.properties.stop_id, f.properties.stop_code, f.properties.StationId, f.properties.NextRide, f.properties.PlatformID];
       
       let ts: number | null = null;
