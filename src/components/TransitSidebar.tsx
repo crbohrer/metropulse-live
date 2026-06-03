@@ -106,8 +106,8 @@ export function TransitSidebar({
 
     // 2. IDENTIFY REVERSED GEOMETRY
     // Route A geometry is Mesa(0) to Phoenix(100), so Eastbound travels backwards.
-    // Route B geometry is Baseline(0) to Metro Pkwy(100), so Southbound travels backwards.
-    const isLineReversed = (rawRid === "A" && normalizedDir === "Eastbound") || (rawRid === "B" && normalizedDir === "Southbound");
+    // Route B geometry is actually North(0) to South(100), so Northbound travels backwards!
+    const isLineReversed = (rawRid === "A" && normalizedDir === "Eastbound") || (rawRid === "B" && normalizedDir === "Northbound");
     const lines = getActiveRouteLines(
       routeShape,
       normalizedDir, 
