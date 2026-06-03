@@ -228,7 +228,6 @@ export const RAIL_STATION_CODES: Record<string, { eastbound?: string; westbound?
   "Mill Ave / 3rd St": { eastbound: "9016", westbound: "9043" },
   "Veterans Way / College Ave": { eastbound: "9027", westbound: "9054" },
   "University Dr / Rural Rd": { eastbound: "9025", westbound: "9052" },
-  "Dorsey Ln / Apache Blvd": { eastbound: "9010", westbound: "9038" },
   "McClintock Dr / Apache Blvd": { eastbound: "9014", westbound: "9041" },
   "Smith-Martin / Apache Blvd": { eastbound: "9022", westbound: "9049" },
   "Price-101 / Apache Blvd": { eastbound: "9019", westbound: "9046" },
