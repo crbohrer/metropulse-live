@@ -158,14 +158,13 @@ export function TransitMap({
     // SPATIAL FILTER: only keep stops physically on the drawn route line.
           if (routeLines.length === 0) return baseStops;
           return baseStops.filter((f) => {
-            const coords = f.geometry.coordinates as [number, number];
-            const nearest = nearestOnLines(routeLines, coords);
-            
-            // THE FIX: Tighten the threshold here too so the map dots match the sidebar!
-            const threshold = isRail ? 0.0000005 : 0.0000005;
-            
-            return nearest && nearest.distSq <= threshold;
-          });
+          const coords = f.geometry.coordinates as [number, number];
+          const nearest = nearestOnLines(routeLines, coords);
+          
+          // Give buses a slightly more forgiving threshold (~30m) so it catches all directional stops smoothly
+          const threshold = isRail ? 0.0000005 : 0.0000005; 
+          return nearest && nearest.distSq <= threshold;
+        });
   }, [isRouteViewActive, routeStops, activeVehicle, routeLines]);
 
   const toLatLng = (coords: LngLat[]): [number, number][] =>
