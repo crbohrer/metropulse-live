@@ -156,6 +156,15 @@ export function TransitSidebar({
             validForDirection = false;
           }
 
+        if (
+            rawRid === "A" && 
+            activeVehicle?.direction?.toLowerCase().includes("west") && 
+            name.includes("Washington") && 
+            name.includes("Central")
+          ) {
+            validForDirection = false;
+          }
+
           // STANDARD BUS ETA MATCHING
           for (const c of idCandidates) {
             if (c == null) continue;
