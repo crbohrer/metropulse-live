@@ -295,10 +295,15 @@ export function TransitMap({
               const ptLng = Array.isArray(pt) ? pt[0] : (pt as any).lng ?? pt[0];
               const ptLat = Array.isArray(pt) ? pt[1] : (pt as any).lat ?? pt[1];
 
-              // 2. THE FIX: Stop relying on messy array indices! 
-              // Calculate the exact physical distance of this track segment.
+              // 2. THE FIX: Account for the direction vector on North/West sequences!
+              const dLower = normalizedDir.toLowerCase();
+              const isMovingBackward = dLower.includes("north") || dLower.includes("west");
+              
+              // If line is reversed by geometry rules OR if the vehicle is physically traveling backward along the line index
+              const shouldFlipDistance = isLineReversed !== isMovingBackward;
+
               const segmentAlong = alongDistance(ghosted.chosen, [ptLng, ptLat]);
-              const isPassedSegment = isLineReversed 
+              const isPassedSegment = shouldFlipDistance 
                 ? segmentAlong > ghosted.vehicleAlong 
                 : segmentAlong < ghosted.vehicleAlong;
               
