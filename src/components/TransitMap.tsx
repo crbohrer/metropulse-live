@@ -214,8 +214,11 @@ export function TransitMap({
           validForDirection = false;
         }
 
-        // 🚨 DOWNTOWN SPLIT HARD-BLOCK: Drop Washington/Central specifically on Route A Westbound
-        if (rawRid === "A" && normalizedDir === "Westbound" && name.includes("Washington / Central")) {
+        if (
+          rawRid === "A" && 
+          activeVehicle?.direction?.toLowerCase().includes("west") && 
+          name.includes("Washington / Central")
+        ) {
           validForDirection = false;
         }
 
