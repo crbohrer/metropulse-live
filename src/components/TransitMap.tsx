@@ -173,48 +173,78 @@ export function TransitMap({
   const toLatLng = (coords: LngLat[]): [number, number][] =>
     coords.map(([lng, lat]) => [lat, lng]);
 
-  // 1. EXTRACTED KILL SWITCH: Find exactly which stops are valid for this trip
+  // 1. EXTRACTED KILL SWITCH & DEDUPLICATION: Find exactly which stops are valid
   const processedStops = useMemo(() => {
-    return stops.map((f) => {
-      const name = (f.properties.stop_name as string) || (f.properties.StationName as string) || (f.properties.STATION as string) || (f.properties.Stop_Name as string) || (f.properties.StopName as string) || (f.properties.STOPNAME as string) || "Transit Stop";
-      const idCandidates = [f.properties.stop_id, f.properties.stop_code, f.properties.StationId, f.properties.NextRide, f.properties.PlatformID];
-      
-      let ts: number | null = null;
-      let validForDirection = true;
-      // 🚨 RETIREMENT HARD-BLOCK: Only drop Dorsey if it is on the Light Rail (Route A or B)
-      if ((rawRid === "A") && name.includes("Dorsey")) {
-        validForDirection = false;
-      }
+    // Track unique station names processed for this specific route execution
+    const seenNames = new Set<string>();
 
-      // Bus ETA Matching
-      for (const c of idCandidates) {
-        if (c == null) continue;
-        const cleanKey = String(c).trim();
-        const match = liveEtas?.[cleanKey] ?? liveEtas?.[cleanKey.replace(/^0+/, '')] ?? liveEtas?.[Number(cleanKey)];
-        if (typeof match === "number") {
-          ts = match;
-          break;
-        }
-      }
+    return stops
+      .map((f) => {
+        const name =
+          (f.properties.stop_name as string) ||
+          (f.properties.StationName as string) ||
+          (f.properties.STATION as string) ||
+          (f.properties.Stop_Name as string) ||
+          (f.properties.StopName as string) ||
+          (f.properties.STOPNAME as string) ||
+          "Transit Stop";
 
-      // Rail Dictionary Lookup
-      if (!ts && liveEtas && (rawRid === "A" || rawRid === "B" || rawRid === "S")) {
-        const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
-        const stationDict = RAIL_STATION_CODES[cleanName];
+        const idCandidates = [
+          f.properties.stop_id,
+          f.properties.stop_code,
+          f.properties.StationId,
+          f.properties.NextRide,
+          f.properties.PlatformID,
+        ];
 
-        if (stationDict) {
-          const possibleCodes = Object.values(stationDict);
-          let foundMatch = false;
-          for (const code of possibleCodes) {
-            if (code && typeof liveEtas[code] === "number") {
-              ts = liveEtas[code];
-              foundMatch = true;
-              break;
-            }
+        let ts: number | null = null;
+        let validForDirection = true;
+
+        // 🚨 DUPLICATE BLEED HARD-BLOCK: Drop duplicate station names on Light Rail routes
+        if (rawRid === "A" || rawRid === "B") {
+          if (seenNames.has(name)) {
+            validForDirection = false;
+          } else {
+            seenNames.add(name);
           }
-          
-          // THE FIX: Only strictly delete the stop if it's the Streetcar!
-          // We want to keep Route A and Route B stops even if their ETA hasn't generated yet.
+        }
+
+        // 🚨 RETIREMENT HARD-BLOCK: Only drop Dorsey if it is on the Light Rail (Route A)
+        if (rawRid === "A" && name.includes("Dorsey")) {
+          validForDirection = false;
+        }
+
+        // Bus ETA Matching
+        for (const c of idCandidates) {
+          if (c == null) continue;
+          const cleanKey = String(c).trim();
+          const match =
+            liveEtas?.[cleanKey] ??
+            liveEtas?.[cleanKey.replace(/^0+/, "")] ??
+            liveEtas?.[Number(cleanKey)];
+          if (typeof match === "number") {
+            ts = match;
+            break;
+          }
+        }
+
+        // Rail Dictionary Lookup
+        if (!ts && liveEtas && (rawRid === "A" || rawRid === "B" || rawRid === "S")) {
+          const cleanName = name.replace(" Station", "").replace(" Stn", "").trim();
+          const stationDict = RAIL_STATION_CODES[cleanName];
+
+          if (stationDict) {
+            const possibleCodes = Object.values(stationDict);
+            let foundMatch = false;
+            for (const code of possibleCodes) {
+              if (code && typeof liveEtas[code] === "number") {
+                ts = liveEtas[code];
+                foundMatch = true;
+                break;
+              }
+            }
+
+            // Only strictly delete the stop if it's the Streetcar!
             if (!foundMatch && rawRid === "S") {
               validForDirection = false;
             }
@@ -224,8 +254,9 @@ export function TransitMap({
           }
         }
 
-      return { feature: f, ts, validForDirection, name };
-    }).filter(s => s.validForDirection); // Only keep the green lit stops!
+        return { feature: f, ts, validForDirection, name };
+      })
+      .filter((s) => s.validForDirection); // Only keep unique, green lit stops!
   }, [stops, liveEtas, rawRid]);
 
   // 2. HELPER: The "Closest Stop Ownership" Fix (RESTRICTED TO STREETCAR)
