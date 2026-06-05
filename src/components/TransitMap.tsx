@@ -122,10 +122,13 @@ export function TransitMap({
           normalizedDir = (dLower.includes("south") || dLower.includes("east")) ? "Southbound" : "Northbound";
         }
 
-        // 2. IDENTIFY REVERSED GEOMETRY (Universal Check)
-        // If the route's base geometry line is drawn from North->South or West->East, 
-        // traveling Northbound or Westbound means we are moving backward along the array index sequence!
-        const isLineReversed = dLower.includes("north") || dLower.includes("west") || (rawRid === "A" && normalizedDir === "Eastbound");
+        // 2. IDENTIFY REVERSED GEOMETRY
+        // 🚨 CRITICAL FIX: Isolate Route S! Streetcar handles its loops via absolute physical distance.
+        // We ONLY flip geometry for Light Rail tracks drawn completely backwards (A Eastbound and B Southbound).
+        // Buses and Streetcars must remain false so they follow their natural geometry tracks!
+        const isLineReversed = 
+          (rawRid === "A" && normalizedDir === "Eastbound") || 
+          (rawRid === "B" && normalizedDir === "Southbound");
   const icons = useMemo(
     () => ({
       bus: buildIcon("bus"),
