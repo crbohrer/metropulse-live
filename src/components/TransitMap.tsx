@@ -214,10 +214,12 @@ export function TransitMap({
           validForDirection = false;
         }
 
+       // 🚨 DOWNTOWN SPLIT HARD-BLOCK: Split checking Washington and Central separately to bypass slash formatting issues
         if (
           rawRid === "A" && 
           activeVehicle?.direction?.toLowerCase().includes("west") && 
-          name.includes("Washington / Central")
+          name.includes("Washington") && 
+          name.includes("Central")
         ) {
           validForDirection = false;
         }
