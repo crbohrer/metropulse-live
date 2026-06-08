@@ -134,7 +134,7 @@ export function TransitSidebar({
         }
 
         const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
-        const name = f.properties?.stop_name || f.properties?.StationName || "Transit Stop";
+        const name = String(f.properties?.stop_name || f.properties?.StationName || "Transit Stop");
 
           // 1. RESTORE FULL PLATFORM ID LOOKUPS
           const idCandidates = [
