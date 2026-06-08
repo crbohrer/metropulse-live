@@ -73,12 +73,15 @@ function Index() {
 
   const visibleVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const dirs = selectedDirections.map((d) => d.toLowerCase());
     return vehicles.filter(
       (v) =>
         filters[v.vehicle_type] &&
-        (q === "" || v.route_id.toLowerCase().includes(q))
+        (q === "" || v.route_id.toLowerCase().includes(q)) &&
+        (dirs.length === 0 ||
+          dirs.some((d) => v.direction.toLowerCase().includes(d)))
     );
-  }, [vehicles, filters, search]);
+  }, [vehicles, filters, search, selectedDirections]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
