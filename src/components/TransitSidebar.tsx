@@ -1,6 +1,5 @@
-import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin } from "lucide-react";
+import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin, Menu, Compass } from "lucide-react";
 import { useState, useEffect, useMemo } from 'react';
-import { Menu, X } from "lucide-react";
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
 import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
 import { getLiveAlerts } from "@/lib/transit.functions";
@@ -30,7 +29,11 @@ interface Props {
   routeStops: RouteGeoJSON | null;
   liveEtas: Record<string, number> | null;
   onSelectStop: (lat: number, lng: number) => void;
+  selectedDirections: string[];
+  onToggleDirection: (d: string) => void;
 }
+
+const DIRECTION_OPTIONS = ["Northbound", "Southbound", "Eastbound", "Westbound"] as const;
 
 
 const typeMeta = {
@@ -67,6 +70,8 @@ export function TransitSidebar({
   routeStops,
   liveEtas,
   onSelectStop,
+  selectedDirections,
+  onToggleDirection,
 }: Props) {
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
@@ -75,12 +80,16 @@ export function TransitSidebar({
   const [itineraryOpen, setItineraryOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  const filtered = vehicles.filter(
-    (v) =>
-      filters[v.vehicle_type] &&
-      (search.trim() === "" ||
-        v.route_id.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = vehicles.filter((v) => {
+    if (!filters[v.vehicle_type]) return false;
+    if (search.trim() !== "" && !v.route_id.toLowerCase().includes(search.toLowerCase())) return false;
+    if (selectedDirections.length > 0) {
+      const vDir = v.direction.toLowerCase();
+      const hit = selectedDirections.some((d) => vDir.includes(d.toLowerCase()));
+      if (!hit) return false;
+    }
+    return true;
+  });
 
   const counts = {
     bus: vehicles.filter((v) => v.vehicle_type === "bus").length,
@@ -135,7 +144,7 @@ export function TransitSidebar({
         }
 
         const along = ghosted ? alongDistance(ghosted.chosen, [lng, lat]) : 0;
-        const name = f.properties?.stop_name || f.properties?.StationName || "Transit Stop";
+        const name = String(f.properties?.stop_name || f.properties?.StationName || "Transit Stop");
 
           // 1. RESTORE FULL PLATFORM ID LOOKUPS
           const idCandidates = [
@@ -438,6 +447,47 @@ export function TransitSidebar({
           );
         })}
       </div>
+
+      {/* Direction filter */}
+      <div className="mb-4">
+        <div className="mb-1.5 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <Compass className="h-3 w-3" />
+            Direction
+          </div>
+          {selectedDirections.length > 0 && (
+            <button
+              onClick={() => selectedDirections.forEach((d) => onToggleDirection(d))}
+              className="text-[10px] text-muted-foreground transition hover:text-foreground"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {DIRECTION_OPTIONS.map((d) => {
+            const active = selectedDirections.includes(d);
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => onToggleDirection(d)}
+                aria-pressed={active}
+                className={`rounded-lg border px-1 py-1.5 text-[11px] font-medium transition ${
+                  active
+                    ? "border-primary/60 bg-primary/15 text-primary shadow-[0_0_12px_-2px_var(--primary)]"
+                    : "border-white/10 bg-white/[0.02] text-muted-foreground hover:border-white/20 hover:text-foreground"
+                }`}
+                title={d}
+              >
+                {d.slice(0, 1)}
+                <span className="hidden sm:inline">{d.slice(1, -5)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
 
       {/* Vehicle feed */}
       <div className="mb-2 flex items-center justify-between">

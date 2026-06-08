@@ -45,6 +45,7 @@ function Index() {
     streetcar: true,
   });
   const [search, setSearch] = useState("");
+  const [selectedDirections, setSelectedDirections] = useState<string[]>([]);
   const [active, setActive] = useState<Vehicle | null>(null);
   const [isRouteViewActive, setIsRouteViewActive] = useState(false);
   const [focusedStop, setFocusedStop] = useState<{ lat: number; lng: number; key: number } | null>(null);
@@ -72,12 +73,15 @@ function Index() {
 
   const visibleVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const dirs = selectedDirections.map((d) => d.toLowerCase());
     return vehicles.filter(
       (v) =>
         filters[v.vehicle_type] &&
-        (q === "" || v.route_id.toLowerCase().includes(q))
+        (q === "" || v.route_id.toLowerCase().includes(q)) &&
+        (dirs.length === 0 ||
+          dirs.some((d) => v.direction.toLowerCase().includes(d)))
     );
-  }, [vehicles, filters, search]);
+  }, [vehicles, filters, search, selectedDirections]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
@@ -127,6 +131,12 @@ function Index() {
         routeStops={active && isRouteViewActive ? routeGeo?.stops ?? null : null}
         liveEtas={isRouteViewActive ? tripUpdates?.etas ?? null : null}
         onSelectStop={(lat, lng) => setFocusedStop({ lat, lng, key: Date.now() })}
+        selectedDirections={selectedDirections}
+        onToggleDirection={(d) =>
+          setSelectedDirections((prev) =>
+            prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
+          )
+        }
       />
       {feedError && (
         <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive backdrop-blur">
