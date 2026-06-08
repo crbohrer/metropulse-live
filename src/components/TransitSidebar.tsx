@@ -80,12 +80,16 @@ export function TransitSidebar({
   const [itineraryOpen, setItineraryOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  const filtered = vehicles.filter(
-    (v) =>
-      filters[v.vehicle_type] &&
-      (search.trim() === "" ||
-        v.route_id.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = vehicles.filter((v) => {
+    if (!filters[v.vehicle_type]) return false;
+    if (search.trim() !== "" && !v.route_id.toLowerCase().includes(search.toLowerCase())) return false;
+    if (selectedDirections.length > 0) {
+      const vDir = v.direction.toLowerCase();
+      const hit = selectedDirections.some((d) => vDir.includes(d.toLowerCase()));
+      if (!hit) return false;
+    }
+    return true;
+  });
 
   const counts = {
     bus: vehicles.filter((v) => v.vehicle_type === "bus").length,
