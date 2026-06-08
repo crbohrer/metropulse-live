@@ -29,7 +29,11 @@ interface Props {
   routeStops: RouteGeoJSON | null;
   liveEtas: Record<string, number> | null;
   onSelectStop: (lat: number, lng: number) => void;
+  selectedDirections: string[];
+  onToggleDirection: (d: string) => void;
 }
+
+const DIRECTION_OPTIONS = ["Northbound", "Southbound", "Eastbound", "Westbound"] as const;
 
 
 const typeMeta = {
