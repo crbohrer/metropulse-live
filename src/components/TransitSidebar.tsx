@@ -448,6 +448,47 @@ export function TransitSidebar({
         })}
       </div>
 
+      {/* Direction filter */}
+      <div className="mb-4">
+        <div className="mb-1.5 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <Compass className="h-3 w-3" />
+            Direction
+          </div>
+          {selectedDirections.length > 0 && (
+            <button
+              onClick={() => selectedDirections.forEach((d) => onToggleDirection(d))}
+              className="text-[10px] text-muted-foreground transition hover:text-foreground"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {DIRECTION_OPTIONS.map((d) => {
+            const active = selectedDirections.includes(d);
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => onToggleDirection(d)}
+                aria-pressed={active}
+                className={`rounded-lg border px-1 py-1.5 text-[11px] font-medium transition ${
+                  active
+                    ? "border-primary/60 bg-primary/15 text-primary shadow-[0_0_12px_-2px_var(--primary)]"
+                    : "border-white/10 bg-white/[0.02] text-muted-foreground hover:border-white/20 hover:text-foreground"
+                }`}
+                title={d}
+              >
+                {d.slice(0, 1)}
+                <span className="hidden sm:inline">{d.slice(1, -5)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+
       {/* Vehicle feed */}
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
