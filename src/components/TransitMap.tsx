@@ -3,14 +3,13 @@ import L from "leaflet";
 import { useEffect, useMemo } from "react";
 import type { Vehicle, VehicleType } from "@/lib/mock-transit";
 import type { GeoJSON as RouteGeoJSON, GeoJSONFeature } from "@/lib/route-shapes.functions";
-import { nearestOnLines } from "@/lib/geo-utils"; // Adjust path if necessary
-import { alongDistance, buildGhostedRoute, filterRouteStops, getActiveRouteLines, type LngLat } from "@/lib/geo-utils";
-import { RAIL_STATION_CODES } from "@/lib/transit.functions"; // <-- Add this new import!
+import { RAIL_STATION_CODES } from "@/lib/transit.functions";
 import {
   alongDistance,
   buildGhostedRoute,
   filterRouteStops,
   getActiveRouteLines,
+  nearestOnLines,
   type LngLat,
 } from "@/lib/geo-utils";
 
