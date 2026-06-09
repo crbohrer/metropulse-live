@@ -78,7 +78,9 @@ function Index() {
     return vehicles.filter(
       (v) =>
         filters[v.vehicle_type] &&
-        (q === "" || v.route_id.toLowerCase().includes(q)) &&
+        (q === "" ||
+          v.route_id.toLowerCase().includes(q) ||
+          v.direction.toLowerCase().includes(q)) &&
         (dirs.length === 0 ||
           dirs.some((d) => v.direction.toLowerCase().includes(d)))
     );
