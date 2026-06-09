@@ -98,15 +98,22 @@ function Index() {
             isRouteViewActive={isRouteViewActive}
             liveEtas={isRouteViewActive ? tripUpdates?.etas ?? null : null}
             focusedStop={focusedStop}
+            stopSearch={search}
+            onPickStop={(s) => {
+              setSelectedStop(s);
+              setFocusedStop({ lat: s.lat, lng: s.lng, key: Date.now() });
+            }}
             onClearSelection={() => {
               setActive(null);
               setIsRouteViewActive(false);
               setFocusedStop(null);
+              setSelectedStop(null);
             }}
             onSelectVehicle={(v) => {
               setActive(v);
               setIsRouteViewActive(false);
               setFocusedStop(null);
+              setSelectedStop(null);
             }}
             onShowRoute={() => setIsRouteViewActive(true)}
           />
