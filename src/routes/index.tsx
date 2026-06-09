@@ -141,6 +141,8 @@ function Index() {
         routeStops={active && isRouteViewActive ? routeGeo?.stops ?? null : null}
         liveEtas={isRouteViewActive ? tripUpdates?.etas ?? null : null}
         onSelectStop={(lat, lng) => setFocusedStop({ lat, lng, key: Date.now() })}
+        selectedStop={selectedStop}
+        onClearSelectedStop={() => setSelectedStop(null)}
         selectedDirections={selectedDirections}
         onToggleDirection={(d) =>
           setSelectedDirections((prev) =>
