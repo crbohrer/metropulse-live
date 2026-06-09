@@ -86,6 +86,8 @@ interface Props {
   isRouteViewActive: boolean;
   liveEtas: Record<string, number> | null;
   focusedStop: { lat: number; lng: number; key: number } | null;
+  stopSearch?: string;
+  onPickStop?: (s: { id: string; name: string; lat: number; lng: number }) => void;
   onClearSelection: () => void;
   onSelectVehicle: (v: Vehicle) => void;
   onShowRoute: () => void;
@@ -99,6 +101,8 @@ export function TransitMap({
   isRouteViewActive,
   liveEtas,
   focusedStop,
+  stopSearch,
+  onPickStop,
   onClearSelection,
   onSelectVehicle,
   onShowRoute,
