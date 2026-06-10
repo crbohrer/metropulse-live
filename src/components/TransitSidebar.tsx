@@ -86,7 +86,12 @@ export function TransitSidebar({
 
   const filtered = vehicles.filter((v) => {
     if (!filters[v.vehicle_type]) return false;
-    if (search.trim() !== "" && !v.route_id.toLowerCase().includes(search.toLowerCase())) return false;
+    const q = search.trim().toLowerCase();
+    if (q !== "") {
+      const matchRoute = v.route_id.toLowerCase().includes(q);
+      const matchDir = v.direction.toLowerCase().includes(q);
+      if (!matchRoute && !matchDir) return false;
+    }
     if (selectedDirections.length > 0) {
       const vDir = v.direction.toLowerCase();
       const hit = selectedDirections.some((d) => vDir.includes(d.toLowerCase()));
@@ -94,6 +99,31 @@ export function TransitSidebar({
     }
     return true;
   });
+
+  // Departure board: vehicles arriving at the selected stop, ranked by ETA.
+  // Approximation: vehicles whose route matches the active route (the route the stop belongs to),
+  // augmented with the live ETA when available for that stop.
+  const departures = useMemo(() => {
+    if (!selectedStop) return [];
+    const activeRouteBase = activeVehicle?.route_id.split(" · ")[0].trim().toLowerCase();
+    const stopEta =
+      liveEtas && (liveEtas[selectedStop.id] ?? liveEtas[selectedStop.id.replace(/^0+/, "")]);
+    return vehicles
+      .filter((v) => {
+        if (!activeRouteBase) return false;
+        return v.route_id.split(" · ")[0].trim().toLowerCase() === activeRouteBase;
+      })
+      .map((v) => ({
+        v,
+        eta: v.id === activeVehicle?.id && typeof stopEta === "number" ? stopEta : null,
+      }))
+      .sort((a, b) => {
+        if (a.eta != null && b.eta != null) return a.eta - b.eta;
+        if (a.eta != null) return -1;
+        if (b.eta != null) return 1;
+        return a.v.delay_seconds - b.v.delay_seconds;
+      });
+  }, [selectedStop, vehicles, activeVehicle, liveEtas]);
 
   const counts = {
     bus: vehicles.filter((v) => v.vehicle_type === "bus").length,
