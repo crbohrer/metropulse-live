@@ -74,6 +74,8 @@ export function TransitSidebar({
   onSelectStop,
   selectedDirections,
   onToggleDirection,
+  selectedStop,
+  onClearSelectedStop,
 }: Props) {
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
