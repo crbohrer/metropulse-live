@@ -430,11 +430,18 @@ export function TransitMap({
             // Sync text label permanently to the final physical state
             isTimePassed = isPassed; 
           }
+          const q = (stopSearch ?? "").trim().toLowerCase();
+          const matchesSearch = q === "" || s.name.toLowerCase().includes(q);
+          if (!matchesSearch) return null;
+          const stopId = String(s.feature.properties?.stop_id ?? s.feature.properties?.stop_code ?? s.feature.properties?.StationId ?? s.name);
           return (
             <CircleMarker
               key={`stop-${shapeKey}-${i}`}
               center={[lat, lng]}
               radius={isPassed ? 4 : 6}
+              eventHandlers={{
+                click: () => onPickStop?.({ id: stopId, name: s.name, lat, lng }),
+              }}
               pathOptions={{
                 color: isPassed ? "#6b7280" : activeColor,
                 fillColor: "#0b0b15",
