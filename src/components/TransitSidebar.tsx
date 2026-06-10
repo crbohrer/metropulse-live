@@ -391,7 +391,7 @@ export function TransitSidebar({
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search route (e.g. 72, 0)"
+          placeholder="Search route or stop (e.g. 72, Rural)"
           className="w-full rounded-xl border border-border bg-input/40 py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-foreground/70 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
         />
       </div>
