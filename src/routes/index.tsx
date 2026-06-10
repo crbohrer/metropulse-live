@@ -72,19 +72,49 @@ function Index() {
     refetchInterval: 15000,
   });
 
+  // Bridge plain-text stop names -> numeric stop IDs by scanning the route stops GeoJSON.
+  const matchedStopIds = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const ids = new Set<string>();
+    if (!q || !routeGeo?.stops) return ids;
+    const features = (routeGeo.stops as { features?: Array<{ properties?: Record<string, unknown> }> }).features ?? [];
+    for (const f of features) {
+      const p = f.properties ?? {};
+      const name = String(
+        p.stop_name ?? p.StationName ?? p.STATION ?? p.Stop_Name ?? p.StopName ?? p.STOPNAME ?? ""
+      ).toLowerCase();
+      if (!name || !name.includes(q)) continue;
+      for (const key of ["stop_id", "stop_code", "StationId", "NextRide", "PlatformID", "PlatformId", "platform_id"]) {
+        const v = p[key];
+        if (v != null) {
+          const s = String(v).trim();
+          ids.add(s);
+          ids.add(s.replace(/^0+/, ""));
+        }
+      }
+    }
+    return ids;
+  }, [search, routeGeo]);
+
   const visibleVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
     const dirs = selectedDirections.map((d) => d.toLowerCase());
-    return vehicles.filter(
-      (v) =>
-        filters[v.vehicle_type] &&
-        (q === "" ||
-          v.route_id.toLowerCase().includes(q) ||
-          v.direction.toLowerCase().includes(q)) &&
-        (dirs.length === 0 ||
-          dirs.some((d) => v.direction.toLowerCase().includes(d)))
-    );
-  }, [vehicles, filters, search, selectedDirections]);
+    const etas = tripUpdates?.etas ?? null;
+    return vehicles.filter((v) => {
+      if (!filters[v.vehicle_type]) return false;
+      if (dirs.length > 0 && !dirs.some((d) => v.direction.toLowerCase().includes(d))) return false;
+      if (q === "") return true;
+      if (v.route_id.toLowerCase().includes(q) || v.direction.toLowerCase().includes(q)) return true;
+      // Stop-name match: keep vehicles whose upcoming ETA stop IDs intersect matchedStopIds.
+      if (matchedStopIds.size > 0 && etas && v.id === active?.id) {
+        for (const sid of Object.keys(etas)) {
+          const clean = String(sid).trim();
+          if (matchedStopIds.has(clean) || matchedStopIds.has(clean.replace(/^0+/, ""))) return true;
+        }
+      }
+      return false;
+    });
+  }, [vehicles, filters, search, selectedDirections, matchedStopIds, tripUpdates, active]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
