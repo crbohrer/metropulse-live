@@ -33,6 +33,7 @@ interface Props {
   onToggleDirection: (d: string) => void;
   selectedStop: { id: string; name: string; lat: number; lng: number } | null;
   onClearSelectedStop: () => void;
+  onPickStop: (s: { id: string; name: string; lat: number; lng: number }) => void;
 }
 
 const DIRECTION_OPTIONS = ["Northbound", "Southbound", "Eastbound", "Westbound"] as const;
