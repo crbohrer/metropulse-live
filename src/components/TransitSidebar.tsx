@@ -12,6 +12,7 @@ import {
   getActiveRouteLines,
   nearestOnLines,
 } from "@/lib/geo-utils";
+import { findStopsByName, findStopIdsByExactName } from "@/lib/stops-index";
 
 interface Props {
   vehicles: Vehicle[];
@@ -103,13 +104,25 @@ export function TransitSidebar({
   });
 
   // Departure board: vehicles arriving at the selected stop, ranked by ETA.
-  // Approximation: vehicles whose route matches the active route (the route the stop belongs to),
-  // augmented with the live ETA when available for that stop.
+  // Source of truth for name<->id mapping is the local stops.json database.
   const departures = useMemo(() => {
     if (!selectedStop) return [];
+    const stopIds = findStopIdsByExactName(selectedStop.name);
+    // Also include the originally clicked id (covers map-marker picks that may carry a non-master id).
+    if (selectedStop.id) {
+      stopIds.add(selectedStop.id);
+      stopIds.add(selectedStop.id.replace(/^0+/, ""));
+    }
+    const lookupEta = (): number | null => {
+      if (!liveEtas) return null;
+      for (const id of stopIds) {
+        const hit = liveEtas[id] ?? liveEtas[id.replace(/^0+/, "")];
+        if (typeof hit === "number") return hit;
+      }
+      return null;
+    };
+    const stopEta = lookupEta();
     const activeRouteBase = activeVehicle?.route_id.split(" · ")[0].trim().toLowerCase();
-    const stopEta =
-      liveEtas && (liveEtas[selectedStop.id] ?? liveEtas[selectedStop.id.replace(/^0+/, "")]);
     return vehicles
       .filter((v) => {
         if (!activeRouteBase) return false;
@@ -127,33 +140,11 @@ export function TransitSidebar({
       });
   }, [selectedStop, vehicles, activeVehicle, liveEtas]);
 
-  // Matching stops from the base route stops GeoJSON, filtered by the search query and deduped by name.
+  // Matching stops sourced from the master stops.json (deduped by name).
   const matchingStops = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q || selectedStop) return [];
-    const features = (routeStops as { features?: Array<{ properties?: Record<string, unknown>; geometry?: { coordinates?: number[] } }> } | null)?.features ?? [];
-    const seen = new Set<string>();
-    const out: { id: string; name: string; lat: number; lng: number }[] = [];
-    for (const f of features) {
-      const p = f.properties ?? {};
-      const name = String(
-        p.stop_name ?? p.StationName ?? p.STATION ?? p.Stop_Name ?? p.StopName ?? p.STOPNAME ?? ""
-      ).trim();
-      if (!name || !name.toLowerCase().includes(q)) continue;
-      const key = name.toLowerCase();
-      if (seen.has(key)) continue;
-      const coords = f.geometry?.coordinates ?? [];
-      const lng = Number(coords[0]);
-      const lat = Number(coords[1]);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      const idRaw =
-        p.stop_id ?? p.stop_code ?? p.StationId ?? p.NextRide ?? p.PlatformID ?? p.PlatformId ?? p.platform_id ?? name;
-      seen.add(key);
-      out.push({ id: String(idRaw), name, lat, lng });
-      if (out.length >= 20) break;
-    }
-    return out;
-  }, [search, selectedStop, routeStops]);
+    if (selectedStop) return [];
+    return findStopsByName(search, 20);
+  }, [search, selectedStop]);
 
   const counts = {
     bus: vehicles.filter((v) => v.vehicle_type === "bus").length,

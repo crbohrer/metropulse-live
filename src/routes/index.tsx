@@ -9,6 +9,7 @@ import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
 import { getLiveVehicles, getTripUpdates } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
+import { findStopIdsByQuery } from "@/lib/stops-index";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -72,29 +73,8 @@ function Index() {
     refetchInterval: 15000,
   });
 
-  // Bridge plain-text stop names -> numeric stop IDs by scanning the route stops GeoJSON.
-  const matchedStopIds = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const ids = new Set<string>();
-    if (!q || !routeGeo?.stops) return ids;
-    const features = (routeGeo.stops as { features?: Array<{ properties?: Record<string, unknown> }> }).features ?? [];
-    for (const f of features) {
-      const p = f.properties ?? {};
-      const name = String(
-        p.stop_name ?? p.StationName ?? p.STATION ?? p.Stop_Name ?? p.StopName ?? p.STOPNAME ?? ""
-      ).toLowerCase();
-      if (!name || !name.includes(q)) continue;
-      for (const key of ["stop_id", "stop_code", "StationId", "NextRide", "PlatformID", "PlatformId", "platform_id"]) {
-        const v = p[key];
-        if (v != null) {
-          const s = String(v).trim();
-          ids.add(s);
-          ids.add(s.replace(/^0+/, ""));
-        }
-      }
-    }
-    return ids;
-  }, [search, routeGeo]);
+  // Bridge plain-text stop names -> numeric stop IDs using the master stops.json database.
+  const matchedStopIds = useMemo(() => findStopIdsByQuery(search), [search]);
 
   const visibleVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
