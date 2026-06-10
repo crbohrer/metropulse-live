@@ -127,6 +127,34 @@ export function TransitSidebar({
       });
   }, [selectedStop, vehicles, activeVehicle, liveEtas]);
 
+  // Matching stops from the base route stops GeoJSON, filtered by the search query and deduped by name.
+  const matchingStops = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q || selectedStop) return [];
+    const features = (routeStops as { features?: Array<{ properties?: Record<string, unknown>; geometry?: { coordinates?: number[] } }> } | null)?.features ?? [];
+    const seen = new Set<string>();
+    const out: { id: string; name: string; lat: number; lng: number }[] = [];
+    for (const f of features) {
+      const p = f.properties ?? {};
+      const name = String(
+        p.stop_name ?? p.StationName ?? p.STATION ?? p.Stop_Name ?? p.StopName ?? p.STOPNAME ?? ""
+      ).trim();
+      if (!name || !name.toLowerCase().includes(q)) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      const coords = f.geometry?.coordinates ?? [];
+      const lng = Number(coords[0]);
+      const lat = Number(coords[1]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      const idRaw =
+        p.stop_id ?? p.stop_code ?? p.StationId ?? p.NextRide ?? p.PlatformID ?? p.PlatformId ?? p.platform_id ?? name;
+      seen.add(key);
+      out.push({ id: String(idRaw), name, lat, lng });
+      if (out.length >= 20) break;
+    }
+    return out;
+  }, [search, selectedStop, routeStops]);
+
   const counts = {
     bus: vehicles.filter((v) => v.vehicle_type === "bus").length,
     rail: vehicles.filter((v) => v.vehicle_type === "rail").length,
