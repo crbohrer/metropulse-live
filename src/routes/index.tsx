@@ -173,6 +173,10 @@ function Index() {
         onSelectStop={(lat, lng) => setFocusedStop({ lat, lng, key: Date.now() })}
         selectedStop={selectedStop}
         onClearSelectedStop={() => setSelectedStop(null)}
+        onPickStop={(s) => {
+          setSelectedStop(s);
+          setFocusedStop({ lat: s.lat, lng: s.lng, key: Date.now() });
+        }}
         selectedDirections={selectedDirections}
         onToggleDirection={(d) =>
           setSelectedDirections((prev) =>
