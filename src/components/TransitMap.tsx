@@ -86,6 +86,8 @@ interface Props {
   isRouteViewActive: boolean;
   liveEtas: Record<string, number> | null;
   focusedStop: { lat: number; lng: number; key: number } | null;
+  stopSearch?: string;
+  onPickStop?: (s: { id: string; name: string; lat: number; lng: number }) => void;
   onClearSelection: () => void;
   onSelectVehicle: (v: Vehicle) => void;
   onShowRoute: () => void;
@@ -99,6 +101,8 @@ export function TransitMap({
   isRouteViewActive,
   liveEtas,
   focusedStop,
+  stopSearch,
+  onPickStop,
   onClearSelection,
   onSelectVehicle,
   onShowRoute,
@@ -426,11 +430,18 @@ export function TransitMap({
             // Sync text label permanently to the final physical state
             isTimePassed = isPassed; 
           }
+          const q = (stopSearch ?? "").trim().toLowerCase();
+          const matchesSearch = q === "" || s.name.toLowerCase().includes(q);
+          if (!matchesSearch) return null;
+          const stopId = String(s.feature.properties?.stop_id ?? s.feature.properties?.stop_code ?? s.feature.properties?.StationId ?? s.name);
           return (
             <CircleMarker
               key={`stop-${shapeKey}-${i}`}
               center={[lat, lng]}
               radius={isPassed ? 4 : 6}
+              eventHandlers={{
+                click: () => onPickStop?.({ id: stopId, name: s.name, lat, lng }),
+              }}
               pathOptions={{
                 color: isPassed ? "#6b7280" : activeColor,
                 fillColor: "#0b0b15",

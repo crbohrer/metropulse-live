@@ -31,6 +31,8 @@ interface Props {
   onSelectStop: (lat: number, lng: number) => void;
   selectedDirections: string[];
   onToggleDirection: (d: string) => void;
+  selectedStop: { id: string; name: string; lat: number; lng: number } | null;
+  onClearSelectedStop: () => void;
 }
 
 const DIRECTION_OPTIONS = ["Northbound", "Southbound", "Eastbound", "Westbound"] as const;
@@ -72,6 +74,8 @@ export function TransitSidebar({
   onSelectStop,
   selectedDirections,
   onToggleDirection,
+  selectedStop,
+  onClearSelectedStop,
 }: Props) {
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
@@ -82,7 +86,12 @@ export function TransitSidebar({
 
   const filtered = vehicles.filter((v) => {
     if (!filters[v.vehicle_type]) return false;
-    if (search.trim() !== "" && !v.route_id.toLowerCase().includes(search.toLowerCase())) return false;
+    const q = search.trim().toLowerCase();
+    if (q !== "") {
+      const matchRoute = v.route_id.toLowerCase().includes(q);
+      const matchDir = v.direction.toLowerCase().includes(q);
+      if (!matchRoute && !matchDir) return false;
+    }
     if (selectedDirections.length > 0) {
       const vDir = v.direction.toLowerCase();
       const hit = selectedDirections.some((d) => vDir.includes(d.toLowerCase()));
@@ -90,6 +99,31 @@ export function TransitSidebar({
     }
     return true;
   });
+
+  // Departure board: vehicles arriving at the selected stop, ranked by ETA.
+  // Approximation: vehicles whose route matches the active route (the route the stop belongs to),
+  // augmented with the live ETA when available for that stop.
+  const departures = useMemo(() => {
+    if (!selectedStop) return [];
+    const activeRouteBase = activeVehicle?.route_id.split(" · ")[0].trim().toLowerCase();
+    const stopEta =
+      liveEtas && (liveEtas[selectedStop.id] ?? liveEtas[selectedStop.id.replace(/^0+/, "")]);
+    return vehicles
+      .filter((v) => {
+        if (!activeRouteBase) return false;
+        return v.route_id.split(" · ")[0].trim().toLowerCase() === activeRouteBase;
+      })
+      .map((v) => ({
+        v,
+        eta: v.id === activeVehicle?.id && typeof stopEta === "number" ? stopEta : null,
+      }))
+      .sort((a, b) => {
+        if (a.eta != null && b.eta != null) return a.eta - b.eta;
+        if (a.eta != null) return -1;
+        if (b.eta != null) return 1;
+        return a.v.delay_seconds - b.v.delay_seconds;
+      });
+  }, [selectedStop, vehicles, activeVehicle, liveEtas]);
 
   const counts = {
     bus: vehicles.filter((v) => v.vehicle_type === "bus").length,
@@ -357,7 +391,7 @@ export function TransitSidebar({
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search route (e.g. 72, 0)"
+          placeholder="Search route or stop (e.g. 72, Rural)"
           className="w-full rounded-xl border border-border bg-input/40 py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-foreground/70 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
         />
       </div>
@@ -489,49 +523,110 @@ export function TransitSidebar({
       </div>
 
 
-      {/* Vehicle feed */}
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Vehicles ({filtered.length})
-        </h2>
-        <span className="text-[10px] text-muted-foreground" suppressHydrationWarning>
-            {last ? last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "..."}
-          </span>
-      </div>
-      <div className="-mr-2 mb-4 max-h-[28%] overflow-y-auto pr-2">
-        {filtered.length === 0 && (
-          <p className="py-4 text-center text-xs text-muted-foreground">No vehicles match.</p>
-        )}
-        <ul className="space-y-1.5">
-          {filtered.slice(0, 30).map((v) => {
-            const meta = typeMeta[v.vehicle_type];
-            const Icon = meta.icon;
-            return (
-              <li key={v.id}>
-                <button
-                  onClick={() => onSelectVehicle(v)}
-                  className="flex w-full items-center gap-3 rounded-lg border border-transparent bg-white/[0.02] px-2.5 py-2 text-left text-xs transition hover:border-white/10 hover:bg-white/[0.05]"
-                >
-                  <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: meta.color }} />
-                  <span className="font-semibold">Route {v.route_id}</span>
-                  <span className="truncate text-muted-foreground">{v.direction}</span>
-                  <span
-                    className={`ml-auto shrink-0 font-medium ${
-                      v.delay_seconds > 60 ? "text-amber-400" : v.delay_seconds < -60 ? "text-emerald-400" : "text-emerald-400"
-                    }`}
-                  >
-                    {v.delay_seconds > 60
-                      ? `+${Math.floor(v.delay_seconds / 60)}m late`
-                      : v.delay_seconds < -60
-                      ? `${Math.floor(Math.abs(v.delay_seconds) / 60)}m early`
-                      : "On time"}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+      {selectedStop ? (
+        <>
+          {/* Departure board */}
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <button
+              onClick={onClearSelectedStop}
+              className="flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] font-medium text-muted-foreground transition hover:bg-white/[0.08] hover:text-foreground"
+            >
+              <X className="h-3 w-3" />
+              Back to All Vehicles
+            </button>
+            <span className="text-[10px] text-muted-foreground" suppressHydrationWarning>
+              {last ? last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "..."}
+            </span>
+          </div>
+          <div className="mb-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Departures</div>
+            <div className="truncate text-sm font-semibold">{selectedStop.name}</div>
+          </div>
+          <div className="-mr-2 mb-4 max-h-[28%] overflow-y-auto pr-2">
+            {departures.length === 0 && (
+              <p className="py-4 text-center text-xs text-muted-foreground">No tracked arrivals.</p>
+            )}
+            <ul className="space-y-1.5">
+              {departures.map(({ v, eta }) => {
+                const meta = typeMeta[v.vehicle_type];
+                const Icon = meta.icon;
+                return (
+                  <li key={v.id}>
+                    <button
+                      onClick={() => onSelectVehicle(v)}
+                      className="flex w-full items-center gap-3 rounded-lg border border-transparent bg-white/[0.02] px-2.5 py-2 text-left text-xs transition hover:border-white/10 hover:bg-white/[0.05]"
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: meta.color }} />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold">Route {v.route_id}</div>
+                        <div className="truncate text-[10px] text-muted-foreground">{v.direction}</div>
+                      </div>
+                      <span
+                        className={`shrink-0 font-mono text-[11px] ${eta ? "text-emerald-300" : "text-muted-foreground"}`}
+                        suppressHydrationWarning
+                      >
+                        {eta
+                          ? new Date(eta * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                          : v.delay_seconds > 60
+                          ? `+${Math.floor(v.delay_seconds / 60)}m`
+                          : v.delay_seconds < -60
+                          ? `-${Math.floor(Math.abs(v.delay_seconds) / 60)}m`
+                          : "On time"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Vehicle feed */}
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Vehicles ({filtered.length})
+            </h2>
+            <span className="text-[10px] text-muted-foreground" suppressHydrationWarning>
+                {last ? last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "..."}
+              </span>
+          </div>
+          <div className="-mr-2 mb-4 max-h-[28%] overflow-y-auto pr-2">
+            {filtered.length === 0 && (
+              <p className="py-4 text-center text-xs text-muted-foreground">No vehicles match.</p>
+            )}
+            <ul className="space-y-1.5">
+              {filtered.slice(0, 30).map((v) => {
+                const meta = typeMeta[v.vehicle_type];
+                const Icon = meta.icon;
+                return (
+                  <li key={v.id}>
+                    <button
+                      onClick={() => onSelectVehicle(v)}
+                      className="flex w-full items-center gap-3 rounded-lg border border-transparent bg-white/[0.02] px-2.5 py-2 text-left text-xs transition hover:border-white/10 hover:bg-white/[0.05]"
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: meta.color }} />
+                      <span className="font-semibold">Route {v.route_id}</span>
+                      <span className="truncate text-muted-foreground">{v.direction}</span>
+                      <span
+                        className={`ml-auto shrink-0 font-medium ${
+                          v.delay_seconds > 60 ? "text-amber-400" : v.delay_seconds < -60 ? "text-emerald-400" : "text-emerald-400"
+                        }`}
+                      >
+                        {v.delay_seconds > 60
+                          ? `+${Math.floor(v.delay_seconds / 60)}m late`
+                          : v.delay_seconds < -60
+                          ? `${Math.floor(Math.abs(v.delay_seconds) / 60)}m early`
+                          : "On time"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </>
+      )}
 
       {/* Alerts */}
       <div className="mt-auto flex min-h-0 flex-1 flex-col">

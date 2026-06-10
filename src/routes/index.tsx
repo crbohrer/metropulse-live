@@ -49,6 +49,7 @@ function Index() {
   const [active, setActive] = useState<Vehicle | null>(null);
   const [isRouteViewActive, setIsRouteViewActive] = useState(false);
   const [focusedStop, setFocusedStop] = useState<{ lat: number; lng: number; key: number } | null>(null);
+  const [selectedStop, setSelectedStop] = useState<{ id: string; name: string; lat: number; lng: number } | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -77,7 +78,9 @@ function Index() {
     return vehicles.filter(
       (v) =>
         filters[v.vehicle_type] &&
-        (q === "" || v.route_id.toLowerCase().includes(q)) &&
+        (q === "" ||
+          v.route_id.toLowerCase().includes(q) ||
+          v.direction.toLowerCase().includes(q)) &&
         (dirs.length === 0 ||
           dirs.some((d) => v.direction.toLowerCase().includes(d)))
     );
@@ -95,15 +98,22 @@ function Index() {
             isRouteViewActive={isRouteViewActive}
             liveEtas={isRouteViewActive ? tripUpdates?.etas ?? null : null}
             focusedStop={focusedStop}
+            stopSearch={search}
+            onPickStop={(s) => {
+              setSelectedStop(s);
+              setFocusedStop({ lat: s.lat, lng: s.lng, key: Date.now() });
+            }}
             onClearSelection={() => {
               setActive(null);
               setIsRouteViewActive(false);
               setFocusedStop(null);
+              setSelectedStop(null);
             }}
             onSelectVehicle={(v) => {
               setActive(v);
               setIsRouteViewActive(false);
               setFocusedStop(null);
+              setSelectedStop(null);
             }}
             onShowRoute={() => setIsRouteViewActive(true)}
           />
@@ -131,6 +141,8 @@ function Index() {
         routeStops={active && isRouteViewActive ? routeGeo?.stops ?? null : null}
         liveEtas={isRouteViewActive ? tripUpdates?.etas ?? null : null}
         onSelectStop={(lat, lng) => setFocusedStop({ lat, lng, key: Date.now() })}
+        selectedStop={selectedStop}
+        onClearSelectedStop={() => setSelectedStop(null)}
         selectedDirections={selectedDirections}
         onToggleDirection={(d) =>
           setSelectedDirections((prev) =>
