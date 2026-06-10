@@ -415,16 +415,44 @@ export function TransitSidebar({
           </div>
         </div>
 
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search route or stop (e.g. 72, Rural)"
-          className="w-full rounded-xl border border-border bg-input/40 py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-foreground/70 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
-        />
-      </div>
+      {/* Search (hidden when a stop is selected — Back to All Vehicles restores it) */}
+      {!selectedStop && (
+        <div className="relative mb-4">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+            placeholder="Search route or stop (e.g. 72, Rural)"
+            className="w-full rounded-xl border border-border bg-input/40 py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-foreground/70 outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+      )}
+
+      {!selectedStop && search.trim() !== "" && matchingStops.length > 0 && (
+        <div className="mb-4">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Matching Stops ({matchingStops.length})
+            </span>
+          </div>
+          <ul className="-mr-2 max-h-44 space-y-1 overflow-y-auto pr-2">
+            {matchingStops.map((s) => (
+              <li key={`${s.id}-${s.name}`}>
+                <button
+                  type="button"
+                  onClick={() => onPickStop(s)}
+                  className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-left text-xs transition hover:border-primary/40 hover:bg-primary/10"
+                  title="Open departure board"
+                >
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">Departures →</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {activeVehicle && (
         <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/10 px-3 py-2">
