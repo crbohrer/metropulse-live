@@ -13,7 +13,7 @@ import {
   getActiveRouteLines,
   nearestOnLines,
 } from "@/lib/geo-utils";
-import { findStopsByName, findStopIdsByExactName } from "@/lib/stops-index";
+import { findStopsByName } from "@/lib/stops-index";
 
 interface Props {
   vehicles: Vehicle[];
