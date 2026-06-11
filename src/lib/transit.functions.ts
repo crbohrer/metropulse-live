@@ -115,6 +115,61 @@ export const getTripUpdates = createServerFn({ method: "GET" })
     }
   });
 
+export interface StopDeparture {
+  tripId: string;
+  routeId: string;
+  vehicleId: string | null;
+  stopId: string;
+  time: number;
+  delay: number;
+}
+
+export const getStopDepartures = createServerFn({ method: "GET" })
+  .inputValidator((data: { stopIds: string[] }) => data)
+  .handler(async ({ data }): Promise<{ departures: StopDeparture[] }> => {
+    const key = process.env.VALLEY_METRO_API_KEY;
+    if (!key || !data.stopIds?.length) return { departures: [] };
+    const targets = new Set<string>();
+    for (const s of data.stopIds) {
+      const c = String(s).trim();
+      if (!c) continue;
+      targets.add(c);
+      targets.add(c.replace(/^0+/, ""));
+    }
+    if (targets.size === 0) return { departures: [] };
+    const nowSec = Math.floor(Date.now() / 1000);
+    const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/realtime/valleymetro?apiKey=${key}&asJson=true`;
+    try {
+      const res = await fetch(url, { headers: { accept: "application/json" } });
+      if (!res.ok) return { departures: [] };
+      const feed = (await res.json()) as { entity?: TripUpdateEntity[] };
+      const out: StopDeparture[] = [];
+      for (const e of feed.entity ?? []) {
+        const tu = e.tripUpdate;
+        if (!tu) continue;
+        const tripId = tu.trip?.tripId ?? tu.vehicle?.id ?? e.id;
+        const routeId = tu.trip?.routeId ?? "—";
+        const vehicleId = tu.vehicle?.id ?? null;
+        for (const stu of tu.stopTimeUpdate ?? []) {
+          const sidRaw = stu.stopId ? String(stu.stopId).trim() : "";
+          if (!sidRaw) continue;
+          if (!targets.has(sidRaw) && !targets.has(sidRaw.replace(/^0+/, ""))) continue;
+          const rawT = stu.arrival?.time ?? stu.departure?.time;
+          const t = typeof rawT === "string" ? Number(rawT) : rawT;
+          if (typeof t !== "number" || !Number.isFinite(t)) continue;
+          if (t < nowSec) continue;
+          const delay = stu.arrival?.delay ?? stu.departure?.delay ?? 0;
+          out.push({ tripId, routeId, vehicleId, stopId: sidRaw, time: t, delay });
+          break;
+        }
+      }
+      out.sort((a, b) => a.time - b.time);
+      return { departures: out };
+    } catch {
+      return { departures: [] };
+    }
+  });
+
 interface TripUpdateEntity {
   id: string;
   tripUpdate?: {

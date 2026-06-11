@@ -1,6 +1,7 @@
 import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin, Menu, Compass } from "lucide-react";
 import { useState, useEffect, useMemo } from 'react';
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
+import type { StopDeparture } from "@/lib/transit.functions";
 import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
 import { getLiveAlerts } from "@/lib/transit.functions";
 import { getLiveRailEta } from "../lib/transit.functions";
@@ -12,7 +13,7 @@ import {
   getActiveRouteLines,
   nearestOnLines,
 } from "@/lib/geo-utils";
-import { findStopsByName, findStopIdsByExactName } from "@/lib/stops-index";
+import { findStopsByName } from "@/lib/stops-index";
 
 interface Props {
   vehicles: Vehicle[];
@@ -35,6 +36,7 @@ interface Props {
   selectedStop: { id: string; name: string; lat: number; lng: number } | null;
   onClearSelectedStop: () => void;
   onPickStop: (s: { id: string; name: string; lat: number; lng: number }) => void;
+  stopDepartures: StopDeparture[] | null;
 }
 
 const DIRECTION_OPTIONS = ["Northbound", "Southbound", "Eastbound", "Westbound"] as const;
@@ -79,6 +81,7 @@ export function TransitSidebar({
   selectedStop,
   onClearSelectedStop,
   onPickStop,
+  stopDepartures,
 }: Props) {
   const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
@@ -103,42 +106,41 @@ export function TransitSidebar({
     return true;
   });
 
-  // Departure board: vehicles arriving at the selected stop, ranked by ETA.
-  // Source of truth for name<->id mapping is the local stops.json database.
+  // Departure board: every future arrival at the selected stop across ALL routes,
+  // sourced from the global trip-updates feed (not restricted to the active vehicle).
   const departures = useMemo(() => {
-    if (!selectedStop) return [];
-    const stopIds = findStopIdsByExactName(selectedStop.name);
-    // Also include the originally clicked id (covers map-marker picks that may carry a non-master id).
-    if (selectedStop.id) {
-      stopIds.add(selectedStop.id);
-      stopIds.add(selectedStop.id.replace(/^0+/, ""));
+    if (!selectedStop || !stopDepartures) return [] as Array<{ v: Vehicle; eta: number | null }>;
+    const nowSec = Date.now() / 1000;
+    const byTrip = new Map<string, Vehicle>();
+    const byVehicle = new Map<string, Vehicle>();
+    for (const v of vehicles) {
+      byTrip.set(v.id, v);
+      byVehicle.set(v.id, v);
     }
-    const lookupEta = (): number | null => {
-      if (!liveEtas) return null;
-      for (const id of stopIds) {
-        const hit = liveEtas[id] ?? liveEtas[id.replace(/^0+/, "")];
-        if (typeof hit === "number") return hit;
-      }
-      return null;
-    };
-    const stopEta = lookupEta();
-    const activeRouteBase = activeVehicle?.route_id.split(" · ")[0].trim().toLowerCase();
-    return vehicles
-      .filter((v) => {
-        if (!activeRouteBase) return false;
-        return v.route_id.split(" · ")[0].trim().toLowerCase() === activeRouteBase;
-      })
-      .map((v) => ({
-        v,
-        eta: v.id === activeVehicle?.id && typeof stopEta === "number" ? stopEta : null,
-      }))
-      .sort((a, b) => {
-        if (a.eta != null && b.eta != null) return a.eta - b.eta;
-        if (a.eta != null) return -1;
-        if (b.eta != null) return 1;
-        return a.v.delay_seconds - b.v.delay_seconds;
-      });
-  }, [selectedStop, vehicles, activeVehicle, liveEtas]);
+    const seen = new Set<string>();
+    const out: Array<{ v: Vehicle; eta: number }> = [];
+    for (const d of stopDepartures) {
+      if (d.time < nowSec) continue;
+      const key = d.vehicleId || d.tripId;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const matched =
+        byTrip.get(d.tripId) ||
+        (d.vehicleId ? byVehicle.get(d.vehicleId) : undefined);
+      const v: Vehicle = matched ?? {
+        id: d.tripId,
+        latitude: 0,
+        longitude: 0,
+        route_id: d.routeId,
+        direction: "—",
+        delay_seconds: d.delay ?? 0,
+        vehicle_type: "bus",
+      };
+      out.push({ v, eta: d.time });
+    }
+    out.sort((a, b) => a.eta - b.eta);
+    return out;
+  }, [selectedStop, stopDepartures, vehicles]);
 
   // Matching stops sourced from the master stops.json (deduped by name).
   const matchingStops = useMemo(() => {

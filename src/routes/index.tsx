@@ -7,9 +7,9 @@ const TransitMap = lazy(() =>
 );
 import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
-import { getLiveVehicles, getTripUpdates } from "@/lib/transit.functions";
+import { getLiveVehicles, getTripUpdates, getStopDepartures } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
-import { findStopIdsByQuery } from "@/lib/stops-index";
+import { findStopIdsByQuery, findStopIdsByExactName } from "@/lib/stops-index";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -25,6 +25,7 @@ function Index() {
   const fetchVehicles = useServerFn(getLiveVehicles);
   const fetchRouteGeometry = useServerFn(getRouteGeometry);
   const fetchTripUpdates = useServerFn(getTripUpdates);
+  const fetchStopDepartures = useServerFn(getStopDepartures);
   const { data } = useQuery({
     queryKey: ["live-vehicles"],
     queryFn: () => fetchVehicles(),
@@ -70,6 +71,24 @@ function Index() {
     queryKey: ["trip-updates", active?.id],
     queryFn: () => fetchTripUpdates({ data: { vehicleId: active!.id } }),
     enabled: !!active && isRouteViewActive,
+    refetchInterval: 15000,
+  });
+
+  // Departure-board feed: every future arrival at the selected stop across ALL routes/vehicles.
+  const stopDepartureIds = useMemo(() => {
+    if (!selectedStop) return [] as string[];
+    const ids = findStopIdsByExactName(selectedStop.name);
+    if (selectedStop.id) {
+      ids.add(selectedStop.id);
+      ids.add(selectedStop.id.replace(/^0+/, ""));
+    }
+    return Array.from(ids);
+  }, [selectedStop]);
+
+  const { data: stopDeparturesData } = useQuery({
+    queryKey: ["stop-departures", selectedStop?.name, stopDepartureIds.join(",")],
+    queryFn: () => fetchStopDepartures({ data: { stopIds: stopDepartureIds } }),
+    enabled: !!selectedStop && stopDepartureIds.length > 0,
     refetchInterval: 15000,
   });
 
@@ -163,6 +182,7 @@ function Index() {
             prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
           )
         }
+        stopDepartures={stopDeparturesData?.departures ?? null}
       />
       {feedError && (
         <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive backdrop-blur">
