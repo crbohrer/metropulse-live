@@ -1,7 +1,9 @@
 import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin, Menu, Compass } from "lucide-react";
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
-import type { StopDeparture } from "@/lib/transit.functions";
+import type { StopDeparture, LiveTransitAlert } from "@/lib/transit.functions";
 import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
 import { getLiveAlerts } from "@/lib/transit.functions";
 import { getLiveRailEta } from "../lib/transit.functions";
