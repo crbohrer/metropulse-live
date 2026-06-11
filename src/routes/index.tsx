@@ -182,6 +182,7 @@ function Index() {
             prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
           )
         }
+        stopDepartures={stopDeparturesData?.departures ?? null}
       />
       {feedError && (
         <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive backdrop-blur">
