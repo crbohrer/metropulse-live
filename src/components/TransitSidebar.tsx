@@ -707,13 +707,23 @@ export function TransitSidebar({
                     <div className="flex items-start gap-2.5">
                       <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${severityColor[a.severity]}`} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            {a.route !== "System" ? `ROUTE ${a.route}` : "SYSTEM"}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {a.routes.slice(0, 4).map((r) => (
+                            <span
+                              key={r}
+                              className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90"
+                            >
+                              {r === "System" ? "SYSTEM" : `ROUTE ${r}`}
+                            </span>
+                          ))}
+                          {a.routes.length > 4 && (
+                            <span className="text-[10px] text-muted-foreground">+{a.routes.length - 4}</span>
+                          )}
+                          <span className="ml-auto text-[10px] text-muted-foreground">
+                            {a.isMock ? "System Test Alert" : a.time}
                           </span>
-                          <span className="text-[10px] text-muted-foreground">{a.time}</span>
                         </div>
-                        <p className={`mt-0.5 text-xs leading-snug ${isExpanded ? '' : 'line-clamp-2'}`}>
+                        <p className={`mt-1 text-xs leading-snug ${isExpanded ? '' : 'line-clamp-2'}`}>
                           {a.title}
                         </p>
                         {isExpanded && a.description && (
