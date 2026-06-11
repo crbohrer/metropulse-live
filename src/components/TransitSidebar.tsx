@@ -36,6 +36,7 @@ interface Props {
   selectedStop: { id: string; name: string; lat: number; lng: number } | null;
   onClearSelectedStop: () => void;
   onPickStop: (s: { id: string; name: string; lat: number; lng: number }) => void;
+  stopDepartures: StopDeparture[] | null;
 }
 
 const DIRECTION_OPTIONS = ["Northbound", "Southbound", "Eastbound", "Westbound"] as const;
