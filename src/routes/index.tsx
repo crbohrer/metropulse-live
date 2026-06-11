@@ -74,6 +74,24 @@ function Index() {
     refetchInterval: 15000,
   });
 
+  // Departure-board feed: every future arrival at the selected stop across ALL routes/vehicles.
+  const stopDepartureIds = useMemo(() => {
+    if (!selectedStop) return [] as string[];
+    const ids = findStopIdsByExactName(selectedStop.name);
+    if (selectedStop.id) {
+      ids.add(selectedStop.id);
+      ids.add(selectedStop.id.replace(/^0+/, ""));
+    }
+    return Array.from(ids);
+  }, [selectedStop]);
+
+  const { data: stopDeparturesData } = useQuery({
+    queryKey: ["stop-departures", selectedStop?.name, stopDepartureIds.join(",")],
+    queryFn: () => fetchStopDepartures({ data: { stopIds: stopDepartureIds } }),
+    enabled: !!selectedStop && stopDepartureIds.length > 0,
+    refetchInterval: 15000,
+  });
+
   // Bridge plain-text stop names -> numeric stop IDs using the master stops.json database.
   const matchedStopIds = useMemo(() => findStopIdsByQuery(search), [search]);
 
