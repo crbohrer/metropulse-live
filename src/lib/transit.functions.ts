@@ -235,16 +235,20 @@ export const getLiveVehicles = createServerFn({ method: "GET" }).handler(
         ) {
           continue;
         }
-        const routeId = v.trip?.routeId ?? "—";
-        const tripId = v.trip?.tripId;
-        const type = classify(v.trip?.routeId);
-        const delay = tripId ? delaysByTrip.get(tripId) ?? 0 : 0;
+        const rawRouteId = v.trip?.routeId?.trim();
+        const tripId = v.trip?.tripId?.trim();
+        // Discard out-of-service / deadheading vehicles: must have an active trip + route.
+        if (!rawRouteId || !tripId) continue;
+        const direction = directionLabel(v.trip?.directionId, pos.bearing);
+        if (!direction || direction === "—") continue;
+        const type = classify(rawRouteId);
+        const delay = delaysByTrip.get(tripId) ?? 0;
         vehicles.push({
-          id: v.trip?.tripId || v.vehicle?.id || e.id || `${routeId}-${vehicles.length}`,
+          id: tripId || v.vehicle?.id || e.id || `${rawRouteId}-${vehicles.length}`,
           latitude: pos.latitude,
           longitude: pos.longitude,
-          route_id: v.vehicle?.label ? `${routeId} · ${v.vehicle.label}` : routeId,
-          direction: directionLabel(v.trip?.directionId, pos.bearing),
+          route_id: v.vehicle?.label ? `${rawRouteId} · ${v.vehicle.label}` : rawRouteId,
+          direction,
           delay_seconds: delay,
           vehicle_type: type,
         });
