@@ -364,14 +364,7 @@ export function TransitSidebar({
       });
   }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas]);
 
-  // Fetch active transit alerts on load and refresh when 'last' changes
-  useEffect(() => {
-    getLiveAlerts()
-      .then((data) => {
-        if (data) setLiveAlerts(data);
-      })
-      .catch((err) => console.error("Alert layout stream failed:", err));
-  }, [last]);
+  // Live alerts now fetched via useQuery above (5-minute polling).
 
   return (
     <>
