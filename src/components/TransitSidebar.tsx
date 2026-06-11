@@ -85,7 +85,15 @@ export function TransitSidebar({
   onPickStop,
   stopDepartures,
 }: Props) {
-  const [liveAlerts, setLiveAlerts] = useState<TransitAlert[]>([]);
+  const fetchLiveAlerts = useServerFn(getLiveAlerts);
+  const { data: liveAlertsData } = useQuery({
+    queryKey: ["live-alerts"],
+    queryFn: () => fetchLiveAlerts(),
+    refetchInterval: 5 * 60 * 1000,
+    refetchIntervalInBackground: true,
+    staleTime: 4 * 60 * 1000,
+  });
+  const liveAlerts: LiveTransitAlert[] = liveAlertsData ?? [];
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
   const [, forceUpdate] = useState({});
   const [railEtas, setRailEtas] = useState<Record<string, number>>({});
