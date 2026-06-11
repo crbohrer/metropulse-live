@@ -17,39 +17,106 @@ interface Feed {
   entity?: FeedEntity[];
 }
 
-// Replace the old fetchLiveAlerts with this:
-export async function getLiveAlerts() {
-  const targetUrl = "https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?asJson=true";
-  // Wrap the endpoint inside a public proxy link to bypass browser domain blocks
-  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-  
-  try {
-    const response = await fetch(proxyUrl);
-    if (!response.ok) throw new Error("Failed to fetch alerts via proxy");
-    
-    const wrapper = await response.json();
-    const data = JSON.parse(wrapper.contents); // Parse the proxied string content
-    
-    if (!data || !data.entity) return [];
-    
-    return data.entity.map((e: any) => {
-      const header = e.alert.headerText?.translation?.[0]?.text || "Transit Alert";
-      const desc = e.alert.descriptionText?.translation?.[0]?.text || "";
-      const route = e.alert.informedEntity?.[0]?.routeId || "System";
-      return {
-        id: e.id,
-        severity: "warning",
-        route: route,
-        title: header,
-        description: desc,
-        time: "Live"
-      };
-    });
-  } catch (error) {
-    console.error("Error fetching alerts on client viewport:", error);
-    return [];
-  }
+// GTFS-Realtime Service Alerts feed. Translations live inside header_text.translation[].text
+// (snake_case in the raw protobuf-as-JSON) — we also accept the camelCase shape some proxies emit.
+interface GtfsTranslation { text?: string; language?: string }
+interface GtfsTranslatedString { translation?: GtfsTranslation[] }
+interface GtfsInformedEntity {
+  route_id?: string; routeId?: string;
+  stop_id?: string; stopId?: string;
+  agency_id?: string; agencyId?: string;
 }
+interface GtfsAlert {
+  header_text?: GtfsTranslatedString; headerText?: GtfsTranslatedString;
+  description_text?: GtfsTranslatedString; descriptionText?: GtfsTranslatedString;
+  informed_entity?: GtfsInformedEntity[]; informedEntity?: GtfsInformedEntity[];
+  severity_level?: string; severityLevel?: string;
+  cause?: string; effect?: string;
+}
+interface GtfsAlertEntity { id?: string; alert?: GtfsAlert }
+
+export interface LiveTransitAlert {
+  id: string;
+  severity: "info" | "warning" | "critical";
+  routes: string[];
+  route: string; // primary label for back-compat
+  title: string;
+  description: string;
+  time: string;
+  isMock?: boolean;
+}
+
+const MOCK_ALERTS: LiveTransitAlert[] = [
+  {
+    id: "mock-1",
+    severity: "warning",
+    routes: ["A"],
+    route: "A",
+    title: "Route A: Minor delays near Downtown Tempe due to event traffic",
+    description: "Expect 5–10 minute delays between Mill Ave and Veterans Way through the evening. Allow extra travel time.",
+    time: "System Test Alert",
+    isMock: true,
+  },
+  {
+    id: "mock-2",
+    severity: "info",
+    routes: ["72"],
+    route: "72",
+    title: "Route 72: Operating on a normal weekday schedule",
+    description: "No reported disruptions. This is a layout verification alert displayed when the live feed has no active service alerts.",
+    time: "System Test Alert",
+    isMock: true,
+  },
+];
+
+function severityFromGtfs(level: string | undefined): "info" | "warning" | "critical" {
+  const s = (level || "").toUpperCase();
+  if (s === "SEVERE") return "critical";
+  if (s === "WARNING") return "warning";
+  if (s === "INFO" || s === "UNKNOWN_SEVERITY" || s === "") return "info";
+  return "warning";
+}
+
+export const getLiveAlerts = createServerFn({ method: "GET" }).handler(async (): Promise<LiveTransitAlert[]> => {
+  const url = "https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?asJson=true";
+  try {
+    const res = await fetch(url, { headers: { accept: "application/json" } });
+    if (!res.ok) throw new Error(`alerts feed ${res.status}`);
+    const data = await res.json() as { entity?: GtfsAlertEntity[] };
+    const entities = data?.entity ?? [];
+    const alerts: LiveTransitAlert[] = [];
+    for (const e of entities) {
+      const a = e.alert;
+      if (!a) continue;
+      const header = a.header_text ?? a.headerText;
+      const desc = a.description_text ?? a.descriptionText;
+      const title = header?.translation?.find((t) => t.text)?.text?.trim() || "Transit Alert";
+      const description = desc?.translation?.find((t) => t.text)?.text?.trim() || "";
+      const informed = a.informed_entity ?? a.informedEntity ?? [];
+      const routes = Array.from(
+        new Set(
+          informed
+            .map((i) => (i.route_id ?? i.routeId ?? "").toString().trim())
+            .filter(Boolean),
+        ),
+      );
+      alerts.push({
+        id: e.id || `alert-${alerts.length}`,
+        severity: severityFromGtfs(a.severity_level ?? a.severityLevel),
+        routes: routes.length ? routes : ["System"],
+        route: routes[0] || "System",
+        title,
+        description,
+        time: "Live",
+      });
+    }
+    if (alerts.length === 0) return MOCK_ALERTS;
+    return alerts;
+  } catch (err) {
+    console.error("getLiveAlerts failed:", err);
+    return MOCK_ALERTS;
+  }
+});
 
 // Valley Metro classification by route_id.
 // Light Rail = "RAIL" / "RL"; Streetcar = "SMC" / "TS"; everything else = bus.
