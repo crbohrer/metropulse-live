@@ -90,8 +90,13 @@ export const getLiveAlerts = createServerFn({ method: "GET" }).handler(async ():
       if (!a) continue;
       const header = a.header_text ?? a.headerText;
       const desc = a.description_text ?? a.descriptionText;
-      const title = header?.translation?.find((t) => t.text)?.text?.trim() || "Transit Alert";
-      const description = desc?.translation?.find((t) => t.text)?.text?.trim() || "";
+      const title = header?.translation?.[0]?.text?.trim() || 
+                    (header?.translation as any)?.find((t: any) => t)?.text?.trim() || 
+                    "Transit Alert";
+
+      const description = desc?.translation?.[0]?.text?.trim() || 
+                          (desc?.translation as any)?.find((t: any) => t)?.text?.trim() || 
+                          "No description provided.";
       const informed = a.informed_entity ?? a.informedEntity ?? [];
       const routes = Array.from(
         new Set(
