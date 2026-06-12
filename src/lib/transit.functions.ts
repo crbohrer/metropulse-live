@@ -78,7 +78,12 @@ function severityFromGtfs(level: string | undefined): "info" | "warning" | "crit
 }
 
 export const getLiveAlerts = createServerFn({ method: "GET" }).handler(async (): Promise<LiveTransitAlert[]> => {
-  const url = "https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?asJson=true";
+  const key = process.env.VALLEY_METRO_API_KEY;
+  if (!key) {
+    console.error("getLiveAlerts: VALLEY_METRO_API_KEY missing");
+    return MOCK_ALERTS;
+  }
+  const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/alerts/valleymetro?apiKey=${key}&asJson=true`;
   try {
     const res = await fetch(url, { headers: { accept: "application/json" } });
     if (!res.ok) throw new Error(`alerts feed ${res.status}`);
