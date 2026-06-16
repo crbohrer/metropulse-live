@@ -9,7 +9,15 @@ import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
 import { getLiveVehicles, getTripUpdates, getStopDepartures } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
-import { findStopIdsByQuery, findStopIdsByExactName } from "@/lib/stops-index";
+import { findStopIdsByQuery, findStopIdsByExactName, findNearestStop, type PickableStop } from "@/lib/stops-index";
+
+export type Pin = { lat: number; lng: number };
+export interface TripPlan {
+  startStop: PickableStop | null;
+  endStop: PickableStop | null;
+  connectingRoutes: string[];
+  nextEta: { routeId: string; time: number } | null;
+}
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -52,8 +60,64 @@ function Index() {
   const [isRouteViewActive, setIsRouteViewActive] = useState(false);
   const [focusedStop, setFocusedStop] = useState<{ lat: number; lng: number; key: number } | null>(null);
   const [selectedStop, setSelectedStop] = useState<{ id: string; name: string; lat: number; lng: number } | null>(null);
+  const [routingMode, setRoutingMode] = useState(false);
+  const [startPin, setStartPin] = useState<Pin | null>(null);
+  const [endPin, setEndPin] = useState<Pin | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Free pin-to-nearest-stop matching using stops.json
+  const startStop = useMemo(() => (startPin ? findNearestStop(startPin.lat, startPin.lng) : null), [startPin]);
+  const endStop = useMemo(() => (endPin ? findNearestStop(endPin.lat, endPin.lng) : null), [endPin]);
+
+  const startStopIds = useMemo(() => {
+    if (!startStop) return [] as string[];
+    const ids = findStopIdsByExactName(startStop.name);
+    ids.add(startStop.id);
+    ids.add(startStop.id.replace(/^0+/, ""));
+    return Array.from(ids);
+  }, [startStop]);
+  const endStopIds = useMemo(() => {
+    if (!endStop) return [] as string[];
+    const ids = findStopIdsByExactName(endStop.name);
+    ids.add(endStop.id);
+    ids.add(endStop.id.replace(/^0+/, ""));
+    return Array.from(ids);
+  }, [endStop]);
+
+  const { data: startDep } = useQuery({
+    queryKey: ["plan-dep-start", startStopIds.join(",")],
+    queryFn: () => fetchStopDepartures({ data: { stopIds: startStopIds } }),
+    enabled: startStopIds.length > 0,
+    refetchInterval: 30000,
+  });
+  const { data: endDep } = useQuery({
+    queryKey: ["plan-dep-end", endStopIds.join(",")],
+    queryFn: () => fetchStopDepartures({ data: { stopIds: endStopIds } }),
+    enabled: endStopIds.length > 0,
+    refetchInterval: 30000,
+  });
+
+  const tripPlan: TripPlan = useMemo(() => {
+    const connecting: string[] = [];
+    let nextEta: TripPlan["nextEta"] = null;
+    if (startStop && endStop && startDep?.departures && endDep?.departures) {
+      const endRoutes = new Set(endDep.departures.map((d) => d.routeId));
+      const seen = new Set<string>();
+      for (const d of startDep.departures) {
+        if (!endRoutes.has(d.routeId)) continue;
+        if (!seen.has(d.routeId)) {
+          seen.add(d.routeId);
+          connecting.push(d.routeId);
+        }
+        if (!nextEta || d.time < nextEta.time) {
+          nextEta = { routeId: d.routeId, time: d.time };
+        }
+      }
+    }
+    return { startStop, endStop, connectingRoutes: connecting, nextEta };
+  }, [startStop, endStop, startDep, endDep]);
+
 
   const { data: routeGeo } = useQuery({
     queryKey: ["route-geo", active?.route_id],
@@ -145,6 +209,16 @@ function Index() {
               setSelectedStop(null);
             }}
             onShowRoute={() => setIsRouteViewActive(true)}
+            routingMode={routingMode}
+            startPin={startPin}
+            endPin={endPin}
+            onDropPin={(latlng: Pin) => {
+              if (!startPin) setStartPin(latlng);
+              else if (!endPin) setEndPin(latlng);
+              else setStartPin(latlng); // cycle: replace start once both are set
+            }}
+            onMoveStartPin={(p: Pin) => setStartPin(p)}
+            onMoveEndPin={(p: Pin) => setEndPin(p)}
           />
         </Suspense>
       )}
@@ -183,6 +257,24 @@ function Index() {
           )
         }
         stopDepartures={stopDeparturesData?.departures ?? null}
+        routingMode={routingMode}
+        startPin={startPin}
+        endPin={endPin}
+        tripPlan={tripPlan}
+        onToggleRoutingMode={() => {
+          setRoutingMode((m) => {
+            const next = !m;
+            if (!next) {
+              setStartPin(null);
+              setEndPin(null);
+            }
+            return next;
+          });
+        }}
+        onClearTripPlan={() => {
+          setStartPin(null);
+          setEndPin(null);
+        }}
       />
       {feedError && (
         <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive backdrop-blur">

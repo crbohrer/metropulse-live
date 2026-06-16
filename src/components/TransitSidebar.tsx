@@ -39,6 +39,17 @@ interface Props {
   onClearSelectedStop: () => void;
   onPickStop: (s: { id: string; name: string; lat: number; lng: number }) => void;
   stopDepartures: StopDeparture[] | null;
+  routingMode: boolean;
+  startPin: { lat: number; lng: number } | null;
+  endPin: { lat: number; lng: number } | null;
+  tripPlan: {
+    startStop: { id: string; name: string; lat: number; lng: number } | null;
+    endStop: { id: string; name: string; lat: number; lng: number } | null;
+    connectingRoutes: string[];
+    nextEta: { routeId: string; time: number } | null;
+  };
+  onToggleRoutingMode: () => void;
+  onClearTripPlan: () => void;
 }
 
 const DIRECTION_OPTIONS = ["Northbound", "Southbound", "Eastbound", "Westbound"] as const;
@@ -84,6 +95,12 @@ export function TransitSidebar({
   onClearSelectedStop,
   onPickStop,
   stopDepartures,
+  routingMode,
+  startPin,
+  endPin,
+  tripPlan,
+  onToggleRoutingMode,
+  onClearTripPlan,
 }: Props) {
   const fetchLiveAlerts = useServerFn(getLiveAlerts);
   const { data: liveAlertsData } = useQuery({
@@ -410,6 +427,91 @@ export function TransitSidebar({
             </div>
           </div>
         </div>
+
+        {/* Plan a Trip */}
+        <div className="mb-4">
+          <button
+            onClick={onToggleRoutingMode}
+            className={`flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+              routingMode
+                ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-200 shadow-[0_0_12px_-2px_rgb(16,185,129)]"
+                : "border-white/10 bg-white/[0.04] text-foreground hover:border-primary/40 hover:bg-primary/10"
+            }`}
+          >
+            <MapPin className="h-3.5 w-3.5" />
+            {routingMode ? "Cancel Trip Planner" : "Plan a Trip"}
+          </button>
+
+          {routingMode && (
+            <div className="mt-2 space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-emerald-200/30" />
+                <span className="min-w-0 flex-1 truncate">
+                  {startPin ? (tripPlan.startStop?.name ?? "Locating stop…") : "Click map to set start"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-red-500 ring-2 ring-red-200/30" />
+                <span className="min-w-0 flex-1 truncate">
+                  {endPin ? (tripPlan.endStop?.name ?? "Locating stop…") : "Click map to set destination"}
+                </span>
+              </div>
+
+              {tripPlan.startStop && tripPlan.endStop && (
+                <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Closest start: <span className="font-semibold text-foreground">{tripPlan.startStop.name}</span>.
+                    Destination: <span className="font-semibold text-foreground">{tripPlan.endStop.name}</span>.
+                  </p>
+                  {tripPlan.connectingRoutes.length > 0 ? (
+                    <>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Connecting routes
+                        </span>
+                        {tripPlan.connectingRoutes.slice(0, 6).map((r) => (
+                          <span
+                            key={r}
+                            className="rounded-md bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
+                          >
+                            {r}
+                          </span>
+                        ))}
+                      </div>
+                      {tripPlan.nextEta && (
+                        <div
+                          className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-200"
+                          suppressHydrationWarning
+                        >
+                          Next: <span className="font-semibold">Route {tripPlan.nextEta.routeId}</span> at{" "}
+                          {new Date(tripPlan.nextEta.time * 1000).toLocaleTimeString([], {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}{" "}
+                          ({Math.max(0, Math.round((tripPlan.nextEta.time * 1000 - Date.now()) / 60000))} min)
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-[11px] text-amber-300/80">
+                      No direct route currently connects these two stops in the live feed.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {(startPin || endPin) && (
+                <button
+                  onClick={onClearTripPlan}
+                  className="mt-1 flex w-full items-center justify-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-white/[0.08] hover:text-foreground"
+                >
+                  <X className="h-3 w-3" /> Clear Route
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
 
       {/* Search (hidden when a stop is selected — Back to All Vehicles restores it) */}
       {!selectedStop && (

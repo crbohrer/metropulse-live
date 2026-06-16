@@ -67,6 +67,31 @@ export function findStopIdsByExactName(name: string): Set<string> {
   return ids;
 }
 
+/** Free nearest-stop lookup using planar distance scaled by latitude. */
+export function findNearestStop(lat: number, lng: number): PickableStop | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const cosLat = Math.cos((lat * Math.PI) / 180);
+  let best: StopRecord | null = null;
+  let bestDist = Infinity;
+  for (const s of ALL_STOPS) {
+    if (!Number.isFinite(s.stop_lat) || !Number.isFinite(s.stop_lon)) continue;
+    const dx = (s.stop_lon - lng) * cosLat;
+    const dy = s.stop_lat - lat;
+    const d = dx * dx + dy * dy;
+    if (d < bestDist) {
+      bestDist = d;
+      best = s;
+    }
+  }
+  if (!best) return null;
+  return {
+    id: String(best.stop_id),
+    name: best.stop_name,
+    lat: best.stop_lat,
+    lng: best.stop_lon,
+  };
+}
+
 function addAllIdVariants(ids: Set<string>, s: StopRecord) {
   if (s.stop_id != null) {
     const id = String(s.stop_id);

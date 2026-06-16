@@ -54,10 +54,36 @@ function FlyToActive({ vehicle }: { vehicle: Vehicle | null }) {
   return null;
 }
 
-function MapClickHandler({ onBackgroundClick }: { onBackgroundClick: () => void }) {
-  useMapEvents({ click: () => onBackgroundClick() });
+function MapClickHandler({
+  routingMode,
+  onDropPin,
+  onBackgroundClick,
+}: {
+  routingMode: boolean;
+  onDropPin: (p: { lat: number; lng: number }) => void;
+  onBackgroundClick: () => void;
+}) {
+  useMapEvents({
+    click: (e) => {
+      if (routingMode) onDropPin({ lat: e.latlng.lat, lng: e.latlng.lng });
+      else onBackgroundClick();
+    },
+  });
   return null;
 }
+
+const startPinIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:22px;height:22px;border-radius:50%;background:#10b981;border:3px solid #ffffff;box-shadow:0 0 0 2px #10b981, 0 2px 8px rgba(0,0,0,0.5);"></div>`,
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+});
+const endPinIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:22px;height:22px;border-radius:50%;background:#ef4444;border:3px solid #ffffff;box-shadow:0 0 0 2px #ef4444, 0 2px 8px rgba(0,0,0,0.5);"></div>`,
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+});
 
 function FlyToStop({ stop }: { stop: { lat: number; lng: number } | null }) {
   const map = useMap();
@@ -91,6 +117,12 @@ interface Props {
   onClearSelection: () => void;
   onSelectVehicle: (v: Vehicle) => void;
   onShowRoute: () => void;
+  routingMode: boolean;
+  startPin: { lat: number; lng: number } | null;
+  endPin: { lat: number; lng: number } | null;
+  onDropPin: (p: { lat: number; lng: number }) => void;
+  onMoveStartPin: (p: { lat: number; lng: number }) => void;
+  onMoveEndPin: (p: { lat: number; lng: number }) => void;
 }
 
 export function TransitMap({
@@ -106,6 +138,12 @@ export function TransitMap({
   onClearSelection,
   onSelectVehicle,
   onShowRoute,
+  routingMode,
+  startPin,
+  endPin,
+  onDropPin,
+  onMoveStartPin,
+  onMoveEndPin,
 }: Props) {
   // Hide all other vehicles when in route view.
   const displayedVehicles = isRouteViewActive && activeVehicle
@@ -324,9 +362,46 @@ export function TransitMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
-      <MapClickHandler onBackgroundClick={onClearSelection} />
+      <MapClickHandler
+        routingMode={routingMode}
+        onDropPin={onDropPin}
+        onBackgroundClick={onClearSelection}
+      />
       <FlyToActive vehicle={activeVehicle} />
       <FlyToStop stop={focusedStop} />
+
+      {startPin && (
+        <Marker
+          position={[startPin.lat, startPin.lng]}
+          icon={startPinIcon}
+          draggable
+          eventHandlers={{
+            dragend: (e) => {
+              const ll = (e.target as L.Marker).getLatLng();
+              onMoveStartPin({ lat: ll.lat, lng: ll.lng });
+            },
+          }}
+          zIndexOffset={2000}
+        >
+          <Popup>Start (drag to adjust)</Popup>
+        </Marker>
+      )}
+      {endPin && (
+        <Marker
+          position={[endPin.lat, endPin.lng]}
+          icon={endPinIcon}
+          draggable
+          eventHandlers={{
+            dragend: (e) => {
+              const ll = (e.target as L.Marker).getLatLng();
+              onMoveEndPin({ lat: ll.lat, lng: ll.lng });
+            },
+          }}
+          zIndexOffset={2000}
+        >
+          <Popup>Destination (drag to adjust)</Popup>
+        </Marker>
+      )}
 
       {ghosted ? (
           <>
