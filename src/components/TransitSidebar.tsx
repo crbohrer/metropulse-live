@@ -39,6 +39,17 @@ interface Props {
   onClearSelectedStop: () => void;
   onPickStop: (s: { id: string; name: string; lat: number; lng: number }) => void;
   stopDepartures: StopDeparture[] | null;
+  routingMode: boolean;
+  startPin: { lat: number; lng: number } | null;
+  endPin: { lat: number; lng: number } | null;
+  tripPlan: {
+    startStop: { id: string; name: string; lat: number; lng: number } | null;
+    endStop: { id: string; name: string; lat: number; lng: number } | null;
+    connectingRoutes: string[];
+    nextEta: { routeId: string; time: number } | null;
+  };
+  onToggleRoutingMode: () => void;
+  onClearTripPlan: () => void;
 }
 
 const DIRECTION_OPTIONS = ["Northbound", "Southbound", "Eastbound", "Westbound"] as const;
