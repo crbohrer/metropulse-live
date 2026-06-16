@@ -362,9 +362,46 @@ export function TransitMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
-      <MapClickHandler onBackgroundClick={onClearSelection} />
+      <MapClickHandler
+        routingMode={routingMode}
+        onDropPin={onDropPin}
+        onBackgroundClick={onClearSelection}
+      />
       <FlyToActive vehicle={activeVehicle} />
       <FlyToStop stop={focusedStop} />
+
+      {startPin && (
+        <Marker
+          position={[startPin.lat, startPin.lng]}
+          icon={startPinIcon}
+          draggable
+          eventHandlers={{
+            dragend: (e) => {
+              const ll = (e.target as L.Marker).getLatLng();
+              onMoveStartPin({ lat: ll.lat, lng: ll.lng });
+            },
+          }}
+          zIndexOffset={2000}
+        >
+          <Popup>Start (drag to adjust)</Popup>
+        </Marker>
+      )}
+      {endPin && (
+        <Marker
+          position={[endPin.lat, endPin.lng]}
+          icon={endPinIcon}
+          draggable
+          eventHandlers={{
+            dragend: (e) => {
+              const ll = (e.target as L.Marker).getLatLng();
+              onMoveEndPin({ lat: ll.lat, lng: ll.lng });
+            },
+          }}
+          zIndexOffset={2000}
+        >
+          <Popup>Destination (drag to adjust)</Popup>
+        </Marker>
+      )}
 
       {ghosted ? (
           <>
