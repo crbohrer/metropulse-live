@@ -88,6 +88,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      {
+        rel: "icon",
+        type: "image/svg+xml",
+        href:
+          "data:image/svg+xml;utf8," +
+          encodeURIComponent(
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="#0f172a"/><g transform="translate(14 8)"><rect x="0" y="2" width="36" height="40" rx="9" fill="url(#g)"/><rect x="4" y="8" width="28" height="12" rx="3" fill="#0f172a"/><circle cx="9" cy="32" r="3.5" fill="#0f172a"/><circle cx="27" cy="32" r="3.5" fill="#0f172a"/><rect x="6" y="42" width="4" height="6" fill="#22d3ee"/><rect x="26" y="42" width="4" height="6" fill="#22d3ee"/></g></svg>`
+          ),
+      },
     ],
   }),
   shellComponent: RootShell,
