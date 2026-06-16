@@ -209,6 +209,16 @@ function Index() {
               setSelectedStop(null);
             }}
             onShowRoute={() => setIsRouteViewActive(true)}
+            routingMode={routingMode}
+            startPin={startPin}
+            endPin={endPin}
+            onDropPin={(latlng) => {
+              if (!startPin) setStartPin(latlng);
+              else if (!endPin) setEndPin(latlng);
+              else setStartPin(latlng); // cycle: replace start once both are set
+            }}
+            onMoveStartPin={(p) => setStartPin(p)}
+            onMoveEndPin={(p) => setEndPin(p)}
           />
         </Suspense>
       )}
