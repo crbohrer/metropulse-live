@@ -9,7 +9,15 @@ import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
 import { getLiveVehicles, getTripUpdates, getStopDepartures } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
-import { findStopIdsByQuery, findStopIdsByExactName } from "@/lib/stops-index";
+import { findStopIdsByQuery, findStopIdsByExactName, findNearestStop, type PickableStop } from "@/lib/stops-index";
+
+export type Pin = { lat: number; lng: number };
+export interface TripPlan {
+  startStop: PickableStop | null;
+  endStop: PickableStop | null;
+  connectingRoutes: string[];
+  nextEta: { routeId: string; time: number } | null;
+}
 
 export const Route = createFileRoute("/")({
   component: Index,
