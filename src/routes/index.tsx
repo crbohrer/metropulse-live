@@ -212,13 +212,13 @@ function Index() {
             routingMode={routingMode}
             startPin={startPin}
             endPin={endPin}
-            onDropPin={(latlng) => {
+            onDropPin={(latlng: Pin) => {
               if (!startPin) setStartPin(latlng);
               else if (!endPin) setEndPin(latlng);
               else setStartPin(latlng); // cycle: replace start once both are set
             }}
-            onMoveStartPin={(p) => setStartPin(p)}
-            onMoveEndPin={(p) => setEndPin(p)}
+            onMoveStartPin={(p: Pin) => setStartPin(p)}
+            onMoveEndPin={(p: Pin) => setEndPin(p)}
           />
         </Suspense>
       )}
