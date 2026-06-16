@@ -95,6 +95,12 @@ export function TransitSidebar({
   onClearSelectedStop,
   onPickStop,
   stopDepartures,
+  routingMode,
+  startPin,
+  endPin,
+  tripPlan,
+  onToggleRoutingMode,
+  onClearTripPlan,
 }: Props) {
   const fetchLiveAlerts = useServerFn(getLiveAlerts);
   const { data: liveAlertsData } = useQuery({
