@@ -257,6 +257,24 @@ function Index() {
           )
         }
         stopDepartures={stopDeparturesData?.departures ?? null}
+        routingMode={routingMode}
+        startPin={startPin}
+        endPin={endPin}
+        tripPlan={tripPlan}
+        onToggleRoutingMode={() => {
+          setRoutingMode((m) => {
+            const next = !m;
+            if (!next) {
+              setStartPin(null);
+              setEndPin(null);
+            }
+            return next;
+          });
+        }}
+        onClearTripPlan={() => {
+          setStartPin(null);
+          setEndPin(null);
+        }}
       />
       {feedError && (
         <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive backdrop-blur">
