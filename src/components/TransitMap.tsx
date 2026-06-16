@@ -117,7 +117,34 @@ interface Props {
   onClearSelection: () => void;
   onSelectVehicle: (v: Vehicle) => void;
   onShowRoute: () => void;
+  routingMode: boolean;
+  startPin: { lat: number; lng: number } | null;
+  endPin: { lat: number; lng: number } | null;
+  onDropPin: (p: { lat: number; lng: number }) => void;
+  onMoveStartPin: (p: { lat: number; lng: number }) => void;
+  onMoveEndPin: (p: { lat: number; lng: number }) => void;
 }
+
+export function TransitMap({
+  vehicles,
+  activeVehicle,
+  routeShape,
+  routeStops,
+  isRouteViewActive,
+  liveEtas,
+  focusedStop,
+  stopSearch,
+  onPickStop,
+  onClearSelection,
+  onSelectVehicle,
+  onShowRoute,
+  routingMode,
+  startPin,
+  endPin,
+  onDropPin,
+  onMoveStartPin,
+  onMoveEndPin,
+}: Props) {
 
 export function TransitMap({
   vehicles,
