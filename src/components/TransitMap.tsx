@@ -145,21 +145,6 @@ export function TransitMap({
   onMoveStartPin,
   onMoveEndPin,
 }: Props) {
-
-export function TransitMap({
-  vehicles,
-  activeVehicle,
-  routeShape,
-  routeStops,
-  isRouteViewActive,
-  liveEtas,
-  focusedStop,
-  stopSearch,
-  onPickStop,
-  onClearSelection,
-  onSelectVehicle,
-  onShowRoute,
-}: Props) {
   // Hide all other vehicles when in route view.
   const displayedVehicles = isRouteViewActive && activeVehicle
     ? vehicles.filter((v) => v.id === activeVehicle.id)
