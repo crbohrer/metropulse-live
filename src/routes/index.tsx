@@ -60,8 +60,64 @@ function Index() {
   const [isRouteViewActive, setIsRouteViewActive] = useState(false);
   const [focusedStop, setFocusedStop] = useState<{ lat: number; lng: number; key: number } | null>(null);
   const [selectedStop, setSelectedStop] = useState<{ id: string; name: string; lat: number; lng: number } | null>(null);
+  const [routingMode, setRoutingMode] = useState(false);
+  const [startPin, setStartPin] = useState<Pin | null>(null);
+  const [endPin, setEndPin] = useState<Pin | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Free pin-to-nearest-stop matching using stops.json
+  const startStop = useMemo(() => (startPin ? findNearestStop(startPin.lat, startPin.lng) : null), [startPin]);
+  const endStop = useMemo(() => (endPin ? findNearestStop(endPin.lat, endPin.lng) : null), [endPin]);
+
+  const startStopIds = useMemo(() => {
+    if (!startStop) return [] as string[];
+    const ids = findStopIdsByExactName(startStop.name);
+    ids.add(startStop.id);
+    ids.add(startStop.id.replace(/^0+/, ""));
+    return Array.from(ids);
+  }, [startStop]);
+  const endStopIds = useMemo(() => {
+    if (!endStop) return [] as string[];
+    const ids = findStopIdsByExactName(endStop.name);
+    ids.add(endStop.id);
+    ids.add(endStop.id.replace(/^0+/, ""));
+    return Array.from(ids);
+  }, [endStop]);
+
+  const { data: startDep } = useQuery({
+    queryKey: ["plan-dep-start", startStopIds.join(",")],
+    queryFn: () => fetchStopDepartures({ data: { stopIds: startStopIds } }),
+    enabled: startStopIds.length > 0,
+    refetchInterval: 30000,
+  });
+  const { data: endDep } = useQuery({
+    queryKey: ["plan-dep-end", endStopIds.join(",")],
+    queryFn: () => fetchStopDepartures({ data: { stopIds: endStopIds } }),
+    enabled: endStopIds.length > 0,
+    refetchInterval: 30000,
+  });
+
+  const tripPlan: TripPlan = useMemo(() => {
+    const connecting: string[] = [];
+    let nextEta: TripPlan["nextEta"] = null;
+    if (startStop && endStop && startDep?.departures && endDep?.departures) {
+      const endRoutes = new Set(endDep.departures.map((d) => d.routeId));
+      const seen = new Set<string>();
+      for (const d of startDep.departures) {
+        if (!endRoutes.has(d.routeId)) continue;
+        if (!seen.has(d.routeId)) {
+          seen.add(d.routeId);
+          connecting.push(d.routeId);
+        }
+        if (!nextEta || d.time < nextEta.time) {
+          nextEta = { routeId: d.routeId, time: d.time };
+        }
+      }
+    }
+    return { startStop, endStop, connectingRoutes: connecting, nextEta };
+  }, [startStop, endStop, startDep, endDep]);
+
 
   const { data: routeGeo } = useQuery({
     queryKey: ["route-geo", active?.route_id],
