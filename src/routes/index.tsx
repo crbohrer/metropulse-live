@@ -7,12 +7,14 @@ const TransitMap = lazy(() =>
 );
 import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
-import { getLiveVehicles, getTripUpdates, getStopDepartures } from "@/lib/transit.functions";
+import { getLiveVehicles, getTripUpdates, getStopDepartures, getTripPlanMatches } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
 import { findStopIdsByQuery, findStopIdsByExactName, findNearestStop, findStopsWithinRadius, type PickableStop, type PickableStopWithDistance } from "@/lib/stops-index";
 
 export type Pin = { lat: number; lng: number };
 export interface TripOption {
+  tripId: string;
+  vehicleId: string | null;
   routeId: string;
   direction: string;
   vehicleType: "bus" | "rail" | "streetcar";
@@ -46,6 +48,7 @@ function Index() {
   const fetchRouteGeometry = useServerFn(getRouteGeometry);
   const fetchTripUpdates = useServerFn(getTripUpdates);
   const fetchStopDepartures = useServerFn(getStopDepartures);
+  const fetchTripPlanMatches = useServerFn(getTripPlanMatches);
   const { data } = useQuery({
     queryKey: ["live-vehicles"],
     queryFn: () => fetchVehicles(),
@@ -112,17 +115,16 @@ function Index() {
     return Array.from(ids);
   }, [endStops]);
 
-  const { data: startDep } = useQuery({
-    queryKey: ["plan-dep-start", startStopIds.join(",")],
-    queryFn: () => fetchStopDepartures({ data: { stopIds: startStopIds } }),
-    enabled: startStopIds.length > 0,
+  const activeTripIds = useMemo(() => vehicles.map((v) => v.id), [vehicles]);
+  const { data: tripMatches } = useQuery({
+    queryKey: ["plan-trip-matches", startStopIds.join(","), endStopIds.join(","), activeTripIds.join(",")],
+    queryFn: () =>
+      fetchTripPlanMatches({
+        data: { startStopIds, endStopIds, activeTripIds },
+      }),
+    enabled: startStopIds.length > 0 && endStopIds.length > 0,
     refetchInterval: 30000,
-  });
-  const { data: endDep } = useQuery({
-    queryKey: ["plan-dep-end", endStopIds.join(",")],
-    queryFn: () => fetchStopDepartures({ data: { stopIds: endStopIds } }),
-    enabled: endStopIds.length > 0,
-    refetchInterval: 30000,
+    refetchIntervalInBackground: true,
   });
 
   const tripPlan: TripPlan = useMemo(() => {
