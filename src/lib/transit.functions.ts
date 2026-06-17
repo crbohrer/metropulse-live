@@ -201,6 +201,18 @@ export interface StopDeparture {
   delay: number;
 }
 
+export interface TripPlanMatch {
+  tripId: string;
+  routeId: string;
+  vehicleId: string | null;
+  startStopId: string;
+  endStopId: string;
+  startSequence: number;
+  endSequence: number;
+  eta: number;
+  delay: number;
+}
+
 export const getStopDepartures = createServerFn({ method: "GET" })
   .inputValidator((data: { stopIds: string[] }) => data)
   .handler(async ({ data }): Promise<{ departures: StopDeparture[] }> => {
@@ -247,13 +259,94 @@ export const getStopDepartures = createServerFn({ method: "GET" })
     }
   });
 
+export const getTripPlanMatches = createServerFn({ method: "GET" })
+  .inputValidator((data: { startStopIds: string[]; endStopIds: string[]; activeTripIds?: string[] }) => data)
+  .handler(async ({ data }): Promise<{ matches: TripPlanMatch[] }> => {
+    const key = process.env.VALLEY_METRO_API_KEY;
+    if (!key || !data.startStopIds?.length || !data.endStopIds?.length) return { matches: [] };
+
+    const normalizeStop = (s: string) => String(s).trim().replace(/^0+/, "");
+    const buildStopSet = (ids: string[]) => {
+      const out = new Set<string>();
+      for (const id of ids) {
+        const raw = String(id).trim();
+        if (!raw) continue;
+        out.add(raw);
+        out.add(normalizeStop(raw));
+      }
+      return out;
+    };
+    const startTargets = buildStopSet(data.startStopIds);
+    const endTargets = buildStopSet(data.endStopIds);
+    if (startTargets.size === 0 || endTargets.size === 0) return { matches: [] };
+
+    const activeTrips = new Set((data.activeTripIds ?? []).map((id) => String(id).trim()).filter(Boolean));
+    const nowSec = Math.floor(Date.now() / 1000);
+    const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/realtime/valleymetro?apiKey=${key}&asJson=true`;
+
+    try {
+      const res = await fetch(url, { headers: { accept: "application/json" } });
+      if (!res.ok) return { matches: [] };
+      const feed = (await res.json()) as { entity?: TripUpdateEntity[] };
+      const matches: TripPlanMatch[] = [];
+
+      for (const e of feed.entity ?? []) {
+        const tu = e.tripUpdate;
+        if (!tu?.stopTimeUpdate?.length) continue;
+        const tripId = tu.trip?.tripId ?? e.id;
+        const vehicleId = tu.vehicle?.id ?? null;
+        if (activeTrips.size > 0 && !activeTrips.has(tripId) && (!vehicleId || !activeTrips.has(vehicleId))) continue;
+
+        const updates = tu.stopTimeUpdate
+          .map((stu, order) => {
+            const stopId = stu.stopId ? String(stu.stopId).trim() : "";
+            const rawTime = stu.arrival?.time ?? stu.departure?.time;
+            const time = typeof rawTime === "string" ? Number(rawTime) : rawTime;
+            const rawSequence = stu.stopSequence;
+            const sequence = typeof rawSequence === "string" ? Number(rawSequence) : rawSequence;
+            const orderValue = typeof sequence === "number" && Number.isFinite(sequence) ? sequence : order;
+            return { stopId, order, orderValue, time, delay: stu.arrival?.delay ?? stu.departure?.delay ?? 0 };
+          })
+          .filter((u) => u.stopId)
+          .sort((a, b) => (a.orderValue === b.orderValue ? a.order - b.order : a.orderValue - b.orderValue));
+
+        for (let i = 0; i < updates.length; i += 1) {
+          const start = updates[i];
+          if (!startTargets.has(start.stopId) && !startTargets.has(normalizeStop(start.stopId))) continue;
+          if (typeof start.time !== "number" || !Number.isFinite(start.time) || start.time < nowSec) continue;
+
+          const end = updates.slice(i + 1).find((u) => endTargets.has(u.stopId) || endTargets.has(normalizeStop(u.stopId)));
+          if (!end) continue;
+
+          matches.push({
+            tripId,
+            routeId: tu.trip?.routeId ?? "—",
+            vehicleId,
+            startStopId: start.stopId,
+            endStopId: end.stopId,
+            startSequence: start.orderValue,
+            endSequence: end.orderValue,
+            eta: start.time,
+            delay: start.delay,
+          });
+          break;
+        }
+      }
+
+      matches.sort((a, b) => a.eta - b.eta);
+      return { matches };
+    } catch {
+      return { matches: [] };
+    }
+  });
+
 interface TripUpdateEntity {
   id: string;
   tripUpdate?: {
     trip?: { tripId?: string; routeId?: string };
     vehicle?: { id?: string };
     stopTimeUpdate?: Array<{
-      stopSequence?: number;
+      stopSequence?: number | string;
       stopId?: string;
       arrival?: { delay?: number; time?: number | string };
       departure?: { delay?: number; time?: number | string };
