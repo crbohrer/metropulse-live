@@ -458,55 +458,89 @@ export function TransitSidebar({
               <div className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-emerald-200/30" />
                 <span className="min-w-0 flex-1 truncate">
-                  {startPin ? (tripPlan.startStop?.name ?? "Locating stop…") : "Click map to set start"}
+                  {startPin
+                    ? tripPlan.startStops.length > 0
+                      ? `${tripPlan.startStops.length} stops within 1 mi`
+                      : "No stops within 1 mi"
+                    : "Click map to set start"}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full bg-red-500 ring-2 ring-red-200/30" />
                 <span className="min-w-0 flex-1 truncate">
-                  {endPin ? (tripPlan.endStop?.name ?? "Locating stop…") : "Click map to set destination"}
+                  {endPin
+                    ? tripPlan.endStops.length > 0
+                      ? `${tripPlan.endStops.length} stops within 1 mi`
+                      : "No stops within 1 mi"
+                    : "Click map to set destination"}
                 </span>
               </div>
 
-              {tripPlan.startStop && tripPlan.endStop && (
+              {startPin && endPin && (
                 <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    Closest start: <span className="font-semibold text-foreground">{tripPlan.startStop.name}</span>.
-                    Destination: <span className="font-semibold text-foreground">{tripPlan.endStop.name}</span>.
-                  </p>
-                  {tripPlan.connectingRoutes.length > 0 ? (
-                    <>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                          Connecting routes
-                        </span>
-                        {tripPlan.connectingRoutes.slice(0, 6).map((r) => (
-                          <span
-                            key={r}
-                            className="rounded-md bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
-                          >
-                            {r}
-                          </span>
-                        ))}
-                      </div>
-                      {tripPlan.nextEta && (
-                        <div
-                          className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-200"
-                          suppressHydrationWarning
-                        >
-                          Next: <span className="font-semibold">Route {tripPlan.nextEta.routeId}</span> at{" "}
-                          {new Date(tripPlan.nextEta.time * 1000).toLocaleTimeString([], {
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })}{" "}
-                          ({Math.max(0, Math.round((tripPlan.nextEta.time * 1000 - Date.now()) / 60000))} min)
-                        </div>
-                      )}
-                    </>
-                  ) : (
+                  {tripPlan.options.length === 0 ? (
                     <p className="text-[11px] text-amber-300/80">
-                      No direct route currently connects these two stops in the live feed.
+                      No active routes currently connect these two areas. Try widening your pins.
                     </p>
+                  ) : (
+                    <>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Best Trip Options ({tripPlan.options.length})
+                      </p>
+                      <ul className="-mr-2 max-h-72 space-y-2 overflow-y-auto pr-2">
+                        {tripPlan.options.slice(0, 8).map((o, idx) => {
+                          const TypeIcon =
+                            o.vehicleType === "rail"
+                              ? TrainFront
+                              : o.vehicleType === "streetcar"
+                              ? TramFront
+                              : Bus;
+                          const mins = Math.max(0, Math.round((o.eta * 1000 - Date.now()) / 60000));
+                          return (
+                            <li
+                              key={`${o.routeId}-${o.direction}-${o.startStop.name}-${idx}`}
+                              className="rounded-lg border border-white/10 bg-white/[0.04] p-2"
+                            >
+                              <div className="flex items-center gap-2">
+                                <TypeIcon className="h-3.5 w-3.5 text-primary" />
+                                <span className="text-[12px] font-semibold text-foreground">
+                                  Route {o.routeId}
+                                </span>
+                                <span className="ml-auto rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200">
+                                  {mins} min
+                                </span>
+                              </div>
+                              <p className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                                {o.direction}
+                              </p>
+                              <p className="mt-1 flex items-start gap-1 text-[11px] text-foreground/90">
+                                <Footprints className="mt-0.5 h-3 w-3 shrink-0 text-emerald-300" />
+                                <span>
+                                  Walk {o.walkMinutes} min ({o.startStop.miles.toFixed(2)} mi) to{" "}
+                                  <span className="font-semibold">{o.startStop.name}</span>
+                                </span>
+                              </p>
+                              <p className="mt-0.5 flex items-start gap-1 text-[11px] text-muted-foreground">
+                                <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-red-300" />
+                                <span>
+                                  Arrive near <span className="font-semibold text-foreground">{o.endStop.name}</span>
+                                </span>
+                              </p>
+                              <p
+                                className="mt-1 text-[10px] text-emerald-200/90"
+                                suppressHydrationWarning
+                              >
+                                Next vehicle at{" "}
+                                {new Date(o.eta * 1000).toLocaleTimeString([], {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
                   )}
                 </div>
               )}
