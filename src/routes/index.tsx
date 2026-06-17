@@ -9,7 +9,7 @@ import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
 import { getLiveVehicles, getTripUpdates, getStopDepartures } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
-import { findStopIdsByQuery, findStopIdsByExactName, findNearestStop, findStopsWithinRadius, distanceMiles, type PickableStop, type PickableStopWithDistance } from "@/lib/stops-index";
+import { findStopIdsByQuery, findStopIdsByExactName, findNearestStop, findStopsWithinRadius, type PickableStop, type PickableStopWithDistance } from "@/lib/stops-index";
 
 export type Pin = { lat: number; lng: number };
 export interface TripOption {
