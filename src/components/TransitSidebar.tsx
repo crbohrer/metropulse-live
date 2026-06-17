@@ -1,4 +1,4 @@
-import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin, Menu, Compass } from "lucide-react";
+import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin, Menu, Compass, Footprints } from "lucide-react";
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
