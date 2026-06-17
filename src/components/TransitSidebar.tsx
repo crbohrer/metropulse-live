@@ -49,6 +49,8 @@ interface Props {
     endStops: Array<{ id: string; name: string; lat: number; lng: number; miles: number }>;
     connectingRoutes: string[];
     options: Array<{
+      tripId: string;
+      vehicleId: string | null;
       routeId: string;
       direction: string;
       vehicleType: "bus" | "rail" | "streetcar";
@@ -503,16 +505,13 @@ export function TransitSidebar({
                             >
                               <div className="flex items-center gap-2">
                                 <TypeIcon className="h-3.5 w-3.5 text-primary" />
-                                <span className="text-[12px] font-semibold text-foreground">
-                                  Route {o.routeId}
+                                <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-foreground">
+                                  {o.vehicleType === "rail" ? "Light Rail" : o.vehicleType === "streetcar" ? "Streetcar" : `Route ${o.routeId}`} - {o.direction}
                                 </span>
-                                <span className="ml-auto rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200">
+                                <span className="shrink-0 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200">
                                   {mins} min
                                 </span>
                               </div>
-                              <p className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                                {o.direction}
-                              </p>
                               <p className="mt-1 flex items-start gap-1 text-[11px] text-foreground/90">
                                 <Footprints className="mt-0.5 h-3 w-3 shrink-0 text-emerald-300" />
                                 <span>
