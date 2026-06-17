@@ -45,7 +45,18 @@ interface Props {
   tripPlan: {
     startStop: { id: string; name: string; lat: number; lng: number } | null;
     endStop: { id: string; name: string; lat: number; lng: number } | null;
+    startStops: Array<{ id: string; name: string; lat: number; lng: number; miles: number }>;
+    endStops: Array<{ id: string; name: string; lat: number; lng: number; miles: number }>;
     connectingRoutes: string[];
+    options: Array<{
+      routeId: string;
+      direction: string;
+      vehicleType: "bus" | "rail" | "streetcar";
+      startStop: { id: string; name: string; lat: number; lng: number; miles: number };
+      endStop: { id: string; name: string; lat: number; lng: number; miles: number };
+      walkMinutes: number;
+      eta: number;
+    }>;
     nextEta: { routeId: string; time: number } | null;
   };
   onToggleRoutingMode: () => void;
