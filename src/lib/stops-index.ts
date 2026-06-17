@@ -144,14 +144,6 @@ export function findStopIdsWithinRadius(lat: number, lng: number, radiusMiles = 
     if (!Number.isFinite(s.stop_lat) || !Number.isFinite(s.stop_lon)) continue;
     if (distanceMiles(lat, lng, s.stop_lat, s.stop_lon) > radiusMiles) continue;
     addAllIdVariants(ids, s);
-    // Also include any other stops sharing the same name (different platforms).
-    if (s.stop_name) {
-      for (const t of ALL_STOPS) {
-        if (t.stop_name && t.stop_name.toLowerCase() === s.stop_name.toLowerCase()) {
-          addAllIdVariants(ids, t);
-        }
-      }
-    }
   }
   return ids;
 }
