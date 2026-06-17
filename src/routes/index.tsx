@@ -137,79 +137,64 @@ function Index() {
       options: [],
       nextEta: null,
     };
-    if (!startStop || !endStop || !startDep?.departures || !endDep?.departures) return empty;
+    if (!startStop || !endStop || !tripMatches?.matches) return empty;
 
-    // Build quick lookup: name (lowercase) -> stop in each radius
-    const startByName = new Map<string, PickableStopWithDistance>();
-    for (const s of startStops) startByName.set(s.name.toLowerCase(), s);
-    const endByName = new Map<string, PickableStopWithDistance>();
-    for (const s of endStops) endByName.set(s.name.toLowerCase(), s);
-
-    // Map stopId -> nearest stop record in each radius (id variants matter).
-    const stopRecordById = (ids: string[], pool: PickableStopWithDistance[]) => {
+    // Map every exact-name stop_id / stop_code variant back to the nearest stop record in each pin radius.
+    const stopRecordById = (pool: PickableStopWithDistance[]) => {
       const map = new Map<string, PickableStopWithDistance>();
       const norm = (s: string) => s.replace(/^0+/, "");
       for (const s of pool) {
         map.set(s.id, s);
         map.set(norm(s.id), s);
+        for (const id of findStopIdsByExactName(s.name)) {
+          map.set(id, s);
+          map.set(norm(id), s);
+        }
       }
       return map;
     };
-    const startIdMap = stopRecordById(startStopIds, startStops);
-    const endIdMap = stopRecordById(endStopIds, endStops);
+    const startIdMap = stopRecordById(startStops);
+    const endIdMap = stopRecordById(endStops);
 
-    // Helper: lookup live vehicle for direction/type by vehicleId or routeId fallback.
-    const vByVehicleId = new Map<string, Vehicle>();
+    // Helper: lookup active vehicle context by trip ID, vehicle ID, then route fallback.
+    const vByTripOrVehicle = new Map<string, Vehicle>();
     const vByRoute = new Map<string, Vehicle>();
     for (const v of vehicles) {
-      vByVehicleId.set(v.id, v);
+      vByTripOrVehicle.set(v.id, v);
       const rid = v.route_id.split(" · ")[0].trim();
       if (!vByRoute.has(rid)) vByRoute.set(rid, v);
     }
 
     const norm = (s: string) => s.replace(/^0+/, "");
-    const endRoutes = new Set(endDep.departures.map((d) => d.routeId));
+    const best = new Map<string, TripOption>();
 
-    // Best (earliest) start departure per (routeId, direction-key, startStopName).
-    type Key = string;
-    const best = new Map<Key, TripOption>();
-    const nowSec = Date.now() / 1000;
-
-    for (const d of startDep.departures) {
-      if (d.time < nowSec) continue;
-      if (!endRoutes.has(d.routeId)) continue;
-
-      const startRec =
-        startIdMap.get(d.stopId) ||
-        startIdMap.get(norm(d.stopId)) ||
-        startStops[0];
+    for (const match of tripMatches.matches) {
+      const startRec = startIdMap.get(match.startStopId) || startIdMap.get(norm(match.startStopId));
       if (!startRec) continue;
-
-      // Pick an end stop that this route also serves (prefer nearest).
-      const endHits = endDep.departures.filter((e) => e.routeId === d.routeId && e.time >= nowSec);
-      let endRec: PickableStopWithDistance | null = null;
-      for (const e of endHits) {
-        const rec = endIdMap.get(e.stopId) || endIdMap.get(norm(e.stopId));
-        if (rec && (!endRec || rec.miles < endRec.miles)) endRec = rec;
-      }
+      const endRec = endIdMap.get(match.endStopId) || endIdMap.get(norm(match.endStopId));
       if (!endRec) continue;
 
-      const veh = (d.vehicleId && vByVehicleId.get(d.vehicleId)) || vByRoute.get(d.routeId);
+      const veh =
+        vByTripOrVehicle.get(match.tripId) ||
+        (match.vehicleId ? vByTripOrVehicle.get(match.vehicleId) : undefined) ||
+        vByRoute.get(match.routeId);
       const direction = veh?.direction ?? "—";
       const vehicleType = veh?.vehicle_type ?? "bus";
       const walkMinutes = Math.max(1, Math.round(startRec.miles * WALK_MIN_PER_MILE));
 
-      const key = `${d.routeId}|${direction}|${startRec.name}`;
+      const key = `${match.tripId}|${match.vehicleId ?? ""}|${match.startStopId}|${match.endStopId}`;
       const existing = best.get(key);
-      if (!existing || d.time < existing.eta) {
+      if (!existing || match.eta < existing.eta) {
         best.set(key, {
-          routeId: d.routeId,
+          tripId: match.tripId,
+          vehicleId: match.vehicleId,
+          routeId: match.routeId,
           direction,
           vehicleType,
           startStop: startRec,
           endStop: endRec,
           walkMinutes,
-          eta: d.time,
+          eta: match.eta,
         });
       }
     }
@@ -226,7 +211,7 @@ function Index() {
     const nextEta = options[0] ? { routeId: options[0].routeId, time: options[0].eta } : null;
 
     return { startStop, endStop, startStops, endStops, connectingRoutes, options, nextEta };
-  }, [startStop, endStop, startStops, endStops, startStopIds, endStopIds, startDep, endDep, vehicles]);
+  }, [startStop, endStop, startStops, endStops, tripMatches, vehicles]);
 
 
   const { data: routeGeo } = useQuery({
