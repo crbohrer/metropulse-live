@@ -9,13 +9,25 @@ import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
 import { getLiveVehicles, getTripUpdates, getStopDepartures } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
-import { findStopIdsByQuery, findStopIdsByExactName, findNearestStop, type PickableStop } from "@/lib/stops-index";
+import { findStopIdsByQuery, findStopIdsByExactName, findNearestStop, findStopsWithinRadius, distanceMiles, type PickableStop, type PickableStopWithDistance } from "@/lib/stops-index";
 
 export type Pin = { lat: number; lng: number };
+export interface TripOption {
+  routeId: string;
+  direction: string;
+  vehicleType: "bus" | "rail" | "streetcar";
+  startStop: PickableStopWithDistance;
+  endStop: PickableStopWithDistance;
+  walkMinutes: number;
+  eta: number; // unix seconds
+}
 export interface TripPlan {
   startStop: PickableStop | null;
   endStop: PickableStop | null;
+  startStops: PickableStopWithDistance[];
+  endStops: PickableStopWithDistance[];
   connectingRoutes: string[];
+  options: TripOption[];
   nextEta: { routeId: string; time: number } | null;
 }
 
