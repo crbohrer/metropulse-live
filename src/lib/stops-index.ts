@@ -92,6 +92,62 @@ export function findNearestStop(lat: number, lng: number): PickableStop | null {
   };
 }
 
+/** Haversine distance in miles between two coordinates. */
+export function distanceMiles(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 3958.7613; // Earth radius (miles)
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const lat1 = toRad(aLat);
+  const lat2 = toRad(bLat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+export interface PickableStopWithDistance extends PickableStop {
+  miles: number;
+}
+
+/** All stops within `radiusMiles` of (lat, lng), deduped by name, sorted nearest first. */
+export function findStopsWithinRadius(
+  lat: number,
+  lng: number,
+  radiusMiles = 1,
+): PickableStopWithDistance[] {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+  const out: PickableStopWithDistance[] = [];
+  const seen = new Map<string, number>(); // name -> index in out
+  for (const s of ALL_STOPS) {
+    if (!Number.isFinite(s.stop_lat) || !Number.isFinite(s.stop_lon)) continue;
+    const d = distanceMiles(lat, lng, s.stop_lat, s.stop_lon);
+    if (d > radiusMiles) continue;
+    const key = (s.stop_name || "").toLowerCase();
+    const existing = seen.get(key);
+    if (existing != null) {
+      if (d < out[existing].miles) {
+        out[existing] = { id: String(s.stop_id), name: s.stop_name, lat: s.stop_lat, lng: s.stop_lon, miles: d };
+      }
+      continue;
+    }
+    seen.set(key, out.length);
+    out.push({ id: String(s.stop_id), name: s.stop_name, lat: s.stop_lat, lng: s.stop_lon, miles: d });
+  }
+  out.sort((a, b) => a.miles - b.miles);
+  return out;
+}
+
+/** All stop_id / stop_code variants for every stop within `radiusMiles` of (lat,lng). */
+export function findStopIdsWithinRadius(lat: number, lng: number, radiusMiles = 1): Set<string> {
+  const ids = new Set<string>();
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return ids;
+  for (const s of ALL_STOPS) {
+    if (!Number.isFinite(s.stop_lat) || !Number.isFinite(s.stop_lon)) continue;
+    if (distanceMiles(lat, lng, s.stop_lat, s.stop_lon) > radiusMiles) continue;
+    addAllIdVariants(ids, s);
+  }
+  return ids;
+}
+
 function addAllIdVariants(ids: Set<string>, s: StopRecord) {
   if (s.stop_id != null) {
     const id = String(s.stop_id);
