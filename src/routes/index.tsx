@@ -384,12 +384,17 @@ function Index() {
         startPin={startPin}
         endPin={endPin}
         tripPlan={tripPlan}
+        walkRadiusMiles={walkRadiusMiles}
+        onChangeWalkRadius={(m) => setWalkRadiusMiles(Math.max(0.2, Math.min(3.0, Math.round(m * 10) / 10)))}
+        selectedTripKey={selectedTripKey}
+        onSelectTripOption={(key) => setSelectedTripKey((prev) => (prev === key ? null : key))}
         onToggleRoutingMode={() => {
           setRoutingMode((m) => {
             const next = !m;
             if (!next) {
               setStartPin(null);
               setEndPin(null);
+              setSelectedTripKey(null);
             }
             return next;
           });
@@ -397,6 +402,7 @@ function Index() {
         onClearTripPlan={() => {
           setStartPin(null);
           setEndPin(null);
+          setSelectedTripKey(null);
         }}
       />
       {feedError && (
