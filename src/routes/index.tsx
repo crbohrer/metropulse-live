@@ -198,6 +198,7 @@ function Index() {
           endStop: endRec,
           walkMinutes,
           eta: match.eta,
+          hasActiveVehicle: match.hasActiveVehicle,
         });
       }
     }
