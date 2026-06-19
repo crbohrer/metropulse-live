@@ -22,6 +22,7 @@ export interface TripOption {
   endStop: PickableStopWithDistance;
   walkMinutes: number;
   eta: number; // unix seconds
+  hasActiveVehicle: boolean;
 }
 export interface TripPlan {
   startStop: PickableStop | null;
