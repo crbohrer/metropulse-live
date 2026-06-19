@@ -79,10 +79,12 @@ function Index() {
   const [routingMode, setRoutingMode] = useState(false);
   const [startPin, setStartPin] = useState<Pin | null>(null);
   const [endPin, setEndPin] = useState<Pin | null>(null);
+  const [walkRadiusMiles, setWalkRadiusMiles] = useState(1);
+  const [selectedTripKey, setSelectedTripKey] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const WALK_RADIUS_MILES = 1;
+  const WALK_RADIUS_MILES = walkRadiusMiles;
   const WALK_MIN_PER_MILE = 20; // ~3 mph
 
   // All stops within 1mi of each pin (covers bus + rail + streetcar platforms).
