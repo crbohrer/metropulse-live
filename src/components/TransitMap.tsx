@@ -123,6 +123,9 @@ interface Props {
   onDropPin: (p: { lat: number; lng: number }) => void;
   onMoveStartPin: (p: { lat: number; lng: number }) => void;
   onMoveEndPin: (p: { lat: number; lng: number }) => void;
+  startRadiusStops?: { id: string; name: string; lat: number; lng: number; miles: number }[];
+  endRadiusStops?: { id: string; name: string; lat: number; lng: number; miles: number }[];
+  radiusMiles?: number;
 }
 
 export function TransitMap({
