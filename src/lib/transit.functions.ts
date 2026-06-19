@@ -211,6 +211,7 @@ export interface TripPlanMatch {
   endSequence: number;
   eta: number;
   delay: number;
+  hasActiveVehicle: boolean;
 }
 
 export const getStopDepartures = createServerFn({ method: "GET" })
