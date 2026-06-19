@@ -58,9 +58,14 @@ interface Props {
       endStop: { id: string; name: string; lat: number; lng: number; miles: number };
       walkMinutes: number;
       eta: number;
+      hasActiveVehicle: boolean;
     }>;
     nextEta: { routeId: string; time: number } | null;
   };
+  walkRadiusMiles: number;
+  onChangeWalkRadius: (m: number) => void;
+  selectedTripKey: string | null;
+  onSelectTripOption: (key: string) => void;
   onToggleRoutingMode: () => void;
   onClearTripPlan: () => void;
 }
