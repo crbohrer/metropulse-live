@@ -147,6 +147,9 @@ export function TransitMap({
   onDropPin,
   onMoveStartPin,
   onMoveEndPin,
+  startRadiusStops = [],
+  endRadiusStops = [],
+  radiusMiles = 1,
 }: Props) {
   // Hide all other vehicles when in route view.
   const displayedVehicles = isRouteViewActive && activeVehicle
