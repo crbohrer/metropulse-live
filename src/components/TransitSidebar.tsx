@@ -117,6 +117,10 @@ export function TransitSidebar({
   startPin,
   endPin,
   tripPlan,
+  walkRadiusMiles,
+  onChangeWalkRadius,
+  selectedTripKey,
+  onSelectTripOption,
   onToggleRoutingMode,
   onClearTripPlan,
 }: Props) {
