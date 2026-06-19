@@ -203,7 +203,18 @@ function Index() {
       }
     }
 
-    const options = Array.from(best.values()).sort((a, b) => a.eta - b.eta);
+    const allOptions = Array.from(best.values()).sort((a, b) => {
+      // Prefer active vehicles, then by ETA
+      if (a.hasActiveVehicle !== b.hasActiveVehicle) return a.hasActiveVehicle ? -1 : 1;
+      return a.eta - b.eta;
+    });
+    // Dedupe by route+direction so each unique route surfaces once (active preferred).
+    const byRouteDir = new Map<string, TripOption>();
+    for (const o of allOptions) {
+      const k = `${o.routeId}|${o.direction}`;
+      if (!byRouteDir.has(k)) byRouteDir.set(k, o);
+    }
+    const options = Array.from(byRouteDir.values());
     const seenRoutes = new Set<string>();
     const connectingRoutes: string[] = [];
     for (const o of options) {
@@ -212,7 +223,8 @@ function Index() {
         connectingRoutes.push(o.routeId);
       }
     }
-    const nextEta = options[0] ? { routeId: options[0].routeId, time: options[0].eta } : null;
+    const firstActive = options.find((o) => o.hasActiveVehicle);
+    const nextEta = firstActive ? { routeId: firstActive.routeId, time: firstActive.eta } : null;
 
     return { startStop, endStop, startStops, endStops, connectingRoutes, options, nextEta };
   }, [startStop, endStop, startStops, endStops, tripMatches, vehicles]);
