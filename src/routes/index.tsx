@@ -314,6 +314,9 @@ function Index() {
             }}
             onMoveStartPin={(p: Pin) => setStartPin(p)}
             onMoveEndPin={(p: Pin) => setEndPin(p)}
+            startRadiusStops={startStops}
+            endRadiusStops={endStops}
+            radiusMiles={WALK_RADIUS_MILES}
           />
         </Suspense>
       )}
