@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, CircleMarker, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, CircleMarker, Circle, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, useMemo } from "react";
 import type { Vehicle, VehicleType } from "@/lib/mock-transit";
@@ -123,6 +123,9 @@ interface Props {
   onDropPin: (p: { lat: number; lng: number }) => void;
   onMoveStartPin: (p: { lat: number; lng: number }) => void;
   onMoveEndPin: (p: { lat: number; lng: number }) => void;
+  startRadiusStops?: { id: string; name: string; lat: number; lng: number; miles: number }[];
+  endRadiusStops?: { id: string; name: string; lat: number; lng: number; miles: number }[];
+  radiusMiles?: number;
 }
 
 export function TransitMap({
@@ -144,6 +147,9 @@ export function TransitMap({
   onDropPin,
   onMoveStartPin,
   onMoveEndPin,
+  startRadiusStops = [],
+  endRadiusStops = [],
+  radiusMiles = 1,
 }: Props) {
   // Hide all other vehicles when in route view.
   const displayedVehicles = isRouteViewActive && activeVehicle
@@ -401,6 +407,55 @@ export function TransitMap({
         >
           <Popup>Destination (drag to adjust)</Popup>
         </Marker>
+      )}
+
+      {routingMode && startPin && (
+        <>
+          <Circle
+            center={[startPin.lat, startPin.lng]}
+            radius={radiusMiles * 1609.34}
+            pathOptions={{ color: "#38bdf8", weight: 1.5, fillColor: "#38bdf8", fillOpacity: 0.08 }}
+          />
+          {startRadiusStops.map((s) => (
+            <CircleMarker
+              key={`start-rad-${s.id}`}
+              center={[s.lat, s.lng]}
+              radius={3}
+              pathOptions={{ color: "#10b981", fillColor: "#10b981", fillOpacity: 0.9, weight: 1 }}
+            >
+              <Popup>
+                <div className="text-xs">
+                  <div className="font-semibold">{s.name}</div>
+                  <div className="opacity-70">{s.miles.toFixed(2)} mi from start</div>
+                </div>
+              </Popup>
+            </CircleMarker>
+          ))}
+        </>
+      )}
+      {routingMode && endPin && (
+        <>
+          <Circle
+            center={[endPin.lat, endPin.lng]}
+            radius={radiusMiles * 1609.34}
+            pathOptions={{ color: "#38bdf8", weight: 1.5, fillColor: "#38bdf8", fillOpacity: 0.08 }}
+          />
+          {endRadiusStops.map((s) => (
+            <CircleMarker
+              key={`end-rad-${s.id}`}
+              center={[s.lat, s.lng]}
+              radius={3}
+              pathOptions={{ color: "#ef4444", fillColor: "#ef4444", fillOpacity: 0.9, weight: 1 }}
+            >
+              <Popup>
+                <div className="text-xs">
+                  <div className="font-semibold">{s.name}</div>
+                  <div className="opacity-70">{s.miles.toFixed(2)} mi from destination</div>
+                </div>
+              </Popup>
+            </CircleMarker>
+          ))}
+        </>
       )}
 
       {ghosted ? (
