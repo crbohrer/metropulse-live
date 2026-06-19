@@ -270,16 +270,25 @@ function Index() {
   // Bridge plain-text stop names -> numeric stop IDs using the master stops.json database.
   const matchedStopIds = useMemo(() => findStopIdsByQuery(search), [search]);
 
+  const selectedOption = useMemo(
+    () => (selectedTripKey ? tripPlan.options.find((o) => `${o.routeId}|${o.direction}` === selectedTripKey) ?? null : null),
+    [selectedTripKey, tripPlan.options],
+  );
+
   const visibleVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
     const dirs = selectedDirections.map((d) => d.toLowerCase());
     const etas = tripUpdates?.etas ?? null;
     return vehicles.filter((v) => {
+      // Focus Mode: when a trip option is selected, show only matching route vehicles.
+      if (selectedOption) {
+        const cleanRid = v.route_id.split(" · ")[0].trim();
+        if (cleanRid !== selectedOption.routeId) return false;
+      }
       if (!filters[v.vehicle_type]) return false;
       if (dirs.length > 0 && !dirs.some((d) => v.direction.toLowerCase().includes(d))) return false;
       if (q === "") return true;
       if (v.route_id.toLowerCase().includes(q) || v.direction.toLowerCase().includes(q)) return true;
-      // Stop-name match: keep vehicles whose upcoming ETA stop IDs intersect matchedStopIds.
       if (matchedStopIds.size > 0 && etas && v.id === active?.id) {
         for (const sid of Object.keys(etas)) {
           const clean = String(sid).trim();
@@ -288,7 +297,7 @@ function Index() {
       }
       return false;
     });
-  }, [vehicles, filters, search, selectedDirections, matchedStopIds, tripUpdates, active]);
+  }, [vehicles, filters, search, selectedDirections, matchedStopIds, tripUpdates, active, selectedOption]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
