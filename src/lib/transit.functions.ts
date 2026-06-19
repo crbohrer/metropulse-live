@@ -211,6 +211,7 @@ export interface TripPlanMatch {
   endSequence: number;
   eta: number;
   delay: number;
+  hasActiveVehicle: boolean;
 }
 
 export const getStopDepartures = createServerFn({ method: "GET" })
@@ -295,7 +296,7 @@ export const getTripPlanMatches = createServerFn({ method: "GET" })
         if (!tu?.stopTimeUpdate?.length) continue;
         const tripId = tu.trip?.tripId ?? e.id;
         const vehicleId = tu.vehicle?.id ?? null;
-        if (activeTrips.size > 0 && !activeTrips.has(tripId) && (!vehicleId || !activeTrips.has(vehicleId))) continue;
+        const isActive = activeTrips.size === 0 || activeTrips.has(tripId) || (!!vehicleId && activeTrips.has(vehicleId));
 
         const updates = tu.stopTimeUpdate
           .map((stu, order) => {
@@ -328,6 +329,7 @@ export const getTripPlanMatches = createServerFn({ method: "GET" })
             endSequence: end.orderValue,
             eta: start.time,
             delay: start.delay,
+            hasActiveVehicle: isActive,
           });
           break;
         }

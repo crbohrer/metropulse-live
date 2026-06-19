@@ -58,9 +58,14 @@ interface Props {
       endStop: { id: string; name: string; lat: number; lng: number; miles: number };
       walkMinutes: number;
       eta: number;
+      hasActiveVehicle: boolean;
     }>;
     nextEta: { routeId: string; time: number } | null;
   };
+  walkRadiusMiles: number;
+  onChangeWalkRadius: (m: number) => void;
+  selectedTripKey: string | null;
+  onSelectTripOption: (key: string) => void;
   onToggleRoutingMode: () => void;
   onClearTripPlan: () => void;
 }
@@ -112,6 +117,10 @@ export function TransitSidebar({
   startPin,
   endPin,
   tripPlan,
+  walkRadiusMiles,
+  onChangeWalkRadius,
+  selectedTripKey,
+  onSelectTripOption,
   onToggleRoutingMode,
   onClearTripPlan,
 }: Props) {
@@ -457,13 +466,44 @@ export function TransitSidebar({
 
           {routingMode && (
             <div className="mt-2 space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs">
+              {/* Walking radius adjuster */}
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5">
+                <div className="flex items-center gap-1.5">
+                  <Footprints className="h-3.5 w-3.5 text-emerald-300" />
+                  <span className="text-[11px] font-semibold text-foreground/90">Walking Radius</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onChangeWalkRadius(walkRadiusMiles - 0.1)}
+                    disabled={walkRadiusMiles <= 0.2}
+                    className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-white/[0.04] text-foreground transition hover:bg-white/[0.1] disabled:opacity-40"
+                    aria-label="Decrease radius"
+                  >
+                    −
+                  </button>
+                  <span className="min-w-[44px] text-center font-mono text-[12px] font-semibold text-emerald-200">
+                    {walkRadiusMiles.toFixed(1)} mi
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onChangeWalkRadius(walkRadiusMiles + 0.1)}
+                    disabled={walkRadiusMiles >= 3.0}
+                    className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-white/[0.04] text-foreground transition hover:bg-white/[0.1] disabled:opacity-40"
+                    aria-label="Increase radius"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
               <div className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-emerald-200/30" />
                 <span className="min-w-0 flex-1 truncate">
                   {startPin
                     ? tripPlan.startStops.length > 0
-                      ? `${tripPlan.startStops.length} stops within 1 mi`
-                      : "No stops within 1 mi"
+                      ? `${tripPlan.startStops.length} stops within ${walkRadiusMiles.toFixed(1)} mi`
+                      : `No stops within ${walkRadiusMiles.toFixed(1)} mi`
                     : "Click map to set start"}
                 </span>
               </div>
@@ -472,8 +512,8 @@ export function TransitSidebar({
                 <span className="min-w-0 flex-1 truncate">
                   {endPin
                     ? tripPlan.endStops.length > 0
-                      ? `${tripPlan.endStops.length} stops within 1 mi`
-                      : "No stops within 1 mi"
+                      ? `${tripPlan.endStops.length} stops within ${walkRadiusMiles.toFixed(1)} mi`
+                      : `No stops within ${walkRadiusMiles.toFixed(1)} mi`
                     : "Click map to set destination"}
                 </span>
               </div>
@@ -482,7 +522,7 @@ export function TransitSidebar({
                 <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
                   {tripPlan.options.length === 0 ? (
                     <p className="text-[11px] text-amber-300/80">
-                      No active routes currently connect these two areas. Try widening your pins.
+                      No routes connect these two areas. Try widening your radius.
                     </p>
                   ) : (
                     <>
@@ -497,44 +537,76 @@ export function TransitSidebar({
                               : o.vehicleType === "streetcar"
                               ? TramFront
                               : Bus;
+                          const optKey = `${o.routeId}|${o.direction}`;
+                          const isSelected = selectedTripKey === optKey;
                           const mins = Math.max(0, Math.round((o.eta * 1000 - Date.now()) / 60000));
+                          const routeLabel =
+                            o.vehicleType === "rail"
+                              ? "Light Rail"
+                              : o.vehicleType === "streetcar"
+                              ? "Streetcar"
+                              : `Route ${o.routeId}`;
                           return (
-                            <li
-                              key={`${o.routeId}-${o.direction}-${o.startStop.name}-${idx}`}
-                              className="rounded-lg border border-white/10 bg-white/[0.04] p-2"
-                            >
-                              <div className="flex items-center gap-2">
-                                <TypeIcon className="h-3.5 w-3.5 text-primary" />
-                                <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-foreground">
-                                  {o.vehicleType === "rail" ? "Light Rail" : o.vehicleType === "streetcar" ? "Streetcar" : `Route ${o.routeId}`} - {o.direction}
-                                </span>
-                                <span className="shrink-0 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200">
-                                  {mins} min
-                                </span>
-                              </div>
-                              <p className="mt-1 flex items-start gap-1 text-[11px] text-foreground/90">
-                                <Footprints className="mt-0.5 h-3 w-3 shrink-0 text-emerald-300" />
-                                <span>
-                                  Walk {o.walkMinutes} min ({o.startStop.miles.toFixed(2)} mi) to{" "}
-                                  <span className="font-semibold">{o.startStop.name}</span>
-                                </span>
-                              </p>
-                              <p className="mt-0.5 flex items-start gap-1 text-[11px] text-muted-foreground">
-                                <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-red-300" />
-                                <span>
-                                  Arrive near <span className="font-semibold text-foreground">{o.endStop.name}</span>
-                                </span>
-                              </p>
-                              <p
-                                className="mt-1 text-[10px] text-emerald-200/90"
-                                suppressHydrationWarning
+                            <li key={`${optKey}-${idx}`}>
+                              <button
+                                type="button"
+                                onClick={() => onSelectTripOption(optKey)}
+                                className={`w-full rounded-lg border p-2 text-left transition ${
+                                  isSelected
+                                    ? "border-primary/60 bg-primary/15 shadow-[0_0_12px_-2px_rgba(99,102,241,0.6)]"
+                                    : "border-white/10 bg-white/[0.04] hover:border-primary/40 hover:bg-white/[0.07]"
+                                }`}
                               >
-                                Next vehicle at{" "}
-                                {new Date(o.eta * 1000).toLocaleTimeString([], {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
-                              </p>
+                                <div className="flex items-center gap-2">
+                                  <TypeIcon className="h-3.5 w-3.5 text-primary" />
+                                  <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-foreground">
+                                    {routeLabel} - {o.direction}
+                                  </span>
+                                  {o.hasActiveVehicle ? (
+                                    <span className="shrink-0 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200">
+                                      {mins} min
+                                    </span>
+                                  ) : (
+                                    <span className="shrink-0 rounded-md bg-slate-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
+                                      Scheduled
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="mt-1 flex items-start gap-1 text-[11px] text-foreground/90">
+                                  <Footprints className="mt-0.5 h-3 w-3 shrink-0 text-emerald-300" />
+                                  <span>
+                                    Walk {o.walkMinutes} min ({o.startStop.miles.toFixed(2)} mi) to{" "}
+                                    <span className="font-semibold">{o.startStop.name}</span>
+                                  </span>
+                                </p>
+                                <p className="mt-0.5 flex items-start gap-1 text-[11px] text-muted-foreground">
+                                  <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-red-300" />
+                                  <span>
+                                    Arrive near <span className="font-semibold text-foreground">{o.endStop.name}</span>
+                                  </span>
+                                </p>
+                                {o.hasActiveVehicle ? (
+                                  <p
+                                    className="mt-1 text-[10px] text-emerald-200/90"
+                                    suppressHydrationWarning
+                                  >
+                                    Next vehicle at{" "}
+                                    {new Date(o.eta * 1000).toLocaleTimeString([], {
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                    })}
+                                  </p>
+                                ) : (
+                                  <p className="mt-1 text-[10px] text-slate-300/80">
+                                    {routeLabel} serves this trip. No live vehicles currently in range—refer to standard schedule.
+                                  </p>
+                                )}
+                                {isSelected && (
+                                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                                    Focus mode active — tap again to clear
+                                  </p>
+                                )}
+                              </button>
                             </li>
                           );
                         })}

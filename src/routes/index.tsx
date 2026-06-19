@@ -22,6 +22,7 @@ export interface TripOption {
   endStop: PickableStopWithDistance;
   walkMinutes: number;
   eta: number; // unix seconds
+  hasActiveVehicle: boolean;
 }
 export interface TripPlan {
   startStop: PickableStop | null;
@@ -78,10 +79,12 @@ function Index() {
   const [routingMode, setRoutingMode] = useState(false);
   const [startPin, setStartPin] = useState<Pin | null>(null);
   const [endPin, setEndPin] = useState<Pin | null>(null);
+  const [walkRadiusMiles, setWalkRadiusMiles] = useState(1);
+  const [selectedTripKey, setSelectedTripKey] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const WALK_RADIUS_MILES = 1;
+  const WALK_RADIUS_MILES = walkRadiusMiles;
   const WALK_MIN_PER_MILE = 20; // ~3 mph
 
   // All stops within 1mi of each pin (covers bus + rail + streetcar platforms).
@@ -195,11 +198,23 @@ function Index() {
           endStop: endRec,
           walkMinutes,
           eta: match.eta,
+          hasActiveVehicle: match.hasActiveVehicle,
         });
       }
     }
 
-    const options = Array.from(best.values()).sort((a, b) => a.eta - b.eta);
+    const allOptions = Array.from(best.values()).sort((a, b) => {
+      // Prefer active vehicles, then by ETA
+      if (a.hasActiveVehicle !== b.hasActiveVehicle) return a.hasActiveVehicle ? -1 : 1;
+      return a.eta - b.eta;
+    });
+    // Dedupe by route+direction so each unique route surfaces once (active preferred).
+    const byRouteDir = new Map<string, TripOption>();
+    for (const o of allOptions) {
+      const k = `${o.routeId}|${o.direction}`;
+      if (!byRouteDir.has(k)) byRouteDir.set(k, o);
+    }
+    const options = Array.from(byRouteDir.values());
     const seenRoutes = new Set<string>();
     const connectingRoutes: string[] = [];
     for (const o of options) {
@@ -208,7 +223,8 @@ function Index() {
         connectingRoutes.push(o.routeId);
       }
     }
-    const nextEta = options[0] ? { routeId: options[0].routeId, time: options[0].eta } : null;
+    const firstActive = options.find((o) => o.hasActiveVehicle);
+    const nextEta = firstActive ? { routeId: firstActive.routeId, time: firstActive.eta } : null;
 
     return { startStop, endStop, startStops, endStops, connectingRoutes, options, nextEta };
   }, [startStop, endStop, startStops, endStops, tripMatches, vehicles]);
@@ -254,16 +270,25 @@ function Index() {
   // Bridge plain-text stop names -> numeric stop IDs using the master stops.json database.
   const matchedStopIds = useMemo(() => findStopIdsByQuery(search), [search]);
 
+  const selectedOption = useMemo(
+    () => (selectedTripKey ? tripPlan.options.find((o) => `${o.routeId}|${o.direction}` === selectedTripKey) ?? null : null),
+    [selectedTripKey, tripPlan.options],
+  );
+
   const visibleVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
     const dirs = selectedDirections.map((d) => d.toLowerCase());
     const etas = tripUpdates?.etas ?? null;
     return vehicles.filter((v) => {
+      // Focus Mode: when a trip option is selected, show only matching route vehicles.
+      if (selectedOption) {
+        const cleanRid = v.route_id.split(" · ")[0].trim();
+        if (cleanRid !== selectedOption.routeId) return false;
+      }
       if (!filters[v.vehicle_type]) return false;
       if (dirs.length > 0 && !dirs.some((d) => v.direction.toLowerCase().includes(d))) return false;
       if (q === "") return true;
       if (v.route_id.toLowerCase().includes(q) || v.direction.toLowerCase().includes(q)) return true;
-      // Stop-name match: keep vehicles whose upcoming ETA stop IDs intersect matchedStopIds.
       if (matchedStopIds.size > 0 && etas && v.id === active?.id) {
         for (const sid of Object.keys(etas)) {
           const clean = String(sid).trim();
@@ -272,7 +297,7 @@ function Index() {
       }
       return false;
     });
-  }, [vehicles, filters, search, selectedDirections, matchedStopIds, tripUpdates, active]);
+  }, [vehicles, filters, search, selectedDirections, matchedStopIds, tripUpdates, active, selectedOption]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
@@ -359,12 +384,17 @@ function Index() {
         startPin={startPin}
         endPin={endPin}
         tripPlan={tripPlan}
+        walkRadiusMiles={walkRadiusMiles}
+        onChangeWalkRadius={(m) => setWalkRadiusMiles(Math.max(0.2, Math.min(3.0, Math.round(m * 10) / 10)))}
+        selectedTripKey={selectedTripKey}
+        onSelectTripOption={(key) => setSelectedTripKey((prev) => (prev === key ? null : key))}
         onToggleRoutingMode={() => {
           setRoutingMode((m) => {
             const next = !m;
             if (!next) {
               setStartPin(null);
               setEndPin(null);
+              setSelectedTripKey(null);
             }
             return next;
           });
@@ -372,6 +402,7 @@ function Index() {
         onClearTripPlan={() => {
           setStartPin(null);
           setEndPin(null);
+          setSelectedTripKey(null);
         }}
       />
       {feedError && (
