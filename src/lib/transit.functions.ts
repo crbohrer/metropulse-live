@@ -291,10 +291,26 @@ export const getTripPlanMatches = createServerFn({ method: "GET" })
       const feed = (await res.json()) as { entity?: TripUpdateEntity[] };
       const matches: TripPlanMatch[] = [];
 
+      // Route-overlap scan: per routeId, collect which start-pool and end-pool stops are visited
+      // by any trip on that route in the realtime feed. Used as a bulletproof fallback so a route
+      // that serves both circles surfaces even when sequence/time data is missing.
+      interface RouteOverlap {
+        startStopId: string;
+        endStopId: string;
+        eta: number;
+        delay: number;
+        tripId: string;
+        vehicleId: string | null;
+        isActive: boolean;
+      }
+      const overlapByRoute = new Map<string, RouteOverlap>();
+      const matchedRouteKeys = new Set<string>();
+
       for (const e of feed.entity ?? []) {
         const tu = e.tripUpdate;
         if (!tu?.stopTimeUpdate?.length) continue;
         const tripId = tu.trip?.tripId ?? e.id;
+        const routeId = tu.trip?.routeId ?? "—";
         const vehicleId = tu.vehicle?.id ?? null;
         const isActive = activeTrips.size === 0 || activeTrips.has(tripId) || (!!vehicleId && activeTrips.has(vehicleId));
 
@@ -311,6 +327,8 @@ export const getTripPlanMatches = createServerFn({ method: "GET" })
           .filter((u) => u.stopId)
           .sort((a, b) => (a.orderValue === b.orderValue ? a.order - b.order : a.orderValue - b.orderValue));
 
+        // Pass 1: sequenced match (start before end with valid future eta).
+        let sequencedHit = false;
         for (let i = 0; i < updates.length; i += 1) {
           const start = updates[i];
           if (!startTargets.has(start.stopId) && !startTargets.has(normalizeStop(start.stopId))) continue;
@@ -321,7 +339,7 @@ export const getTripPlanMatches = createServerFn({ method: "GET" })
 
           matches.push({
             tripId,
-            routeId: tu.trip?.routeId ?? "—",
+            routeId,
             vehicleId,
             startStopId: start.stopId,
             endStopId: end.stopId,
@@ -331,11 +349,63 @@ export const getTripPlanMatches = createServerFn({ method: "GET" })
             delay: start.delay,
             hasActiveVehicle: isActive,
           });
+          matchedRouteKeys.add(routeId);
+          sequencedHit = true;
           break;
+        }
+        if (sequencedHit) continue;
+
+        // Pass 2: route-overlap fallback — does this trip visit both a start-pool stop AND an
+        // end-pool stop in any order/time? If so, remember the route for synthetic emission.
+        const startHit = updates.find((u) => startTargets.has(u.stopId) || startTargets.has(normalizeStop(u.stopId)));
+        const endHit = updates.find((u) => endTargets.has(u.stopId) || endTargets.has(normalizeStop(u.stopId)));
+        if (!startHit || !endHit) continue;
+        const futureStartTime =
+          typeof startHit.time === "number" && Number.isFinite(startHit.time) && startHit.time >= nowSec
+            ? startHit.time
+            : 0;
+        const existing = overlapByRoute.get(routeId);
+        if (
+          !existing ||
+          (futureStartTime > 0 && (existing.eta === 0 || futureStartTime < existing.eta)) ||
+          (isActive && !existing.isActive)
+        ) {
+          overlapByRoute.set(routeId, {
+            startStopId: startHit.stopId,
+            endStopId: endHit.stopId,
+            eta: futureStartTime,
+            delay: startHit.delay,
+            tripId,
+            vehicleId,
+            isActive,
+          });
         }
       }
 
-      matches.sort((a, b) => a.eta - b.eta);
+      // Emit synthetic fallback matches for routes that overlap both circles but had no
+      // sequenced match. Marked hasActiveVehicle=false when no live trip is currently tracked.
+      for (const [routeId, ov] of overlapByRoute) {
+        if (matchedRouteKeys.has(routeId)) continue;
+        matches.push({
+          tripId: ov.tripId,
+          routeId,
+          vehicleId: ov.vehicleId,
+          startStopId: ov.startStopId,
+          endStopId: ov.endStopId,
+          startSequence: 0,
+          endSequence: 0,
+          eta: ov.eta,
+          delay: ov.delay,
+          hasActiveVehicle: ov.isActive,
+        });
+      }
+
+      matches.sort((a, b) => {
+        if (a.hasActiveVehicle !== b.hasActiveVehicle) return a.hasActiveVehicle ? -1 : 1;
+        if (a.eta === 0 && b.eta !== 0) return 1;
+        if (b.eta === 0 && a.eta !== 0) return -1;
+        return a.eta - b.eta;
+      });
       return { matches };
     } catch {
       return { matches: [] };
