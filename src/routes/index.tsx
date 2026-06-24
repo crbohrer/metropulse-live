@@ -90,11 +90,11 @@ function Index() {
   // All stops within 1mi of each pin (covers bus + rail + streetcar platforms).
   const startStops = useMemo<PickableStopWithDistance[]>(
     () => (startPin ? findStopsWithinRadius(startPin.lat, startPin.lng, WALK_RADIUS_MILES) : []),
-    [startPin],
+    [startPin, WALK_RADIUS_MILES],
   );
   const endStops = useMemo<PickableStopWithDistance[]>(
     () => (endPin ? findStopsWithinRadius(endPin.lat, endPin.lng, WALK_RADIUS_MILES) : []),
-    [endPin],
+    [endPin, WALK_RADIUS_MILES],
   );
   const startStop = useMemo(() => (startPin ? findNearestStop(startPin.lat, startPin.lng) : null), [startPin]);
   const endStop = useMemo(() => (endPin ? findNearestStop(endPin.lat, endPin.lng) : null), [endPin]);
