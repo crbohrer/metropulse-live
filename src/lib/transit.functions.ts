@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { Vehicle, VehicleType } from "./mock-transit";
+import stopsData from "./stops.json";
 
 interface FeedEntity {
   id: string;
