@@ -7,7 +7,7 @@ const TransitMap = lazy(() =>
 );
 import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
-import { getLiveVehicles, getTripUpdates, getStopDepartures, getTripPlanMatches } from "@/lib/transit.functions";
+import { getLiveVehicles, getTripUpdates, getStopDepartures, getTripPlanMatches, getTripPlanTransfers, type TransferPlan } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
 import { findStopIdsByQuery, findStopIdsByExactName, findNearestStop, findStopsWithinRadius, type PickableStop, type PickableStopWithDistance } from "@/lib/stops-index";
 
@@ -31,6 +31,7 @@ export interface TripPlan {
   endStops: PickableStopWithDistance[];
   connectingRoutes: string[];
   options: TripOption[];
+  transfers: TransferPlan[];
   nextEta: { routeId: string; time: number } | null;
 }
 
@@ -130,6 +131,16 @@ function Index() {
     refetchIntervalInBackground: true,
   });
 
+  const fetchTripPlanTransfers = useServerFn(getTripPlanTransfers);
+  const directOptionsCount = (tripMatches?.matches?.length ?? 0);
+  const { data: transferData } = useQuery({
+    queryKey: ["plan-trip-transfers", startStopIds.join(","), endStopIds.join(","), activeTripIds.join(",")],
+    queryFn: () => fetchTripPlanTransfers({ data: { startStopIds, endStopIds, activeTripIds } }),
+    enabled: startStopIds.length > 0 && endStopIds.length > 0 && directOptionsCount === 0,
+    refetchInterval: 30000,
+    refetchIntervalInBackground: true,
+  });
+
   const tripPlan: TripPlan = useMemo(() => {
     const empty: TripPlan = {
       startStop,
@@ -138,6 +149,7 @@ function Index() {
       endStops,
       connectingRoutes: [],
       options: [],
+      transfers: transferData?.transfers ?? [],
       nextEta: null,
     };
     if (!startStop || !endStop || !tripMatches?.matches) return empty;
@@ -226,8 +238,8 @@ function Index() {
     const firstActive = options.find((o) => o.hasActiveVehicle);
     const nextEta = firstActive ? { routeId: firstActive.routeId, time: firstActive.eta } : null;
 
-    return { startStop, endStop, startStops, endStops, connectingRoutes, options, nextEta };
-  }, [startStop, endStop, startStops, endStops, tripMatches, vehicles]);
+    return { startStop, endStop, startStops, endStops, connectingRoutes, options, transfers: transferData?.transfers ?? [], nextEta };
+  }, [startStop, endStop, startStops, endStops, tripMatches, vehicles, transferData]);
 
 
   const { data: routeGeo } = useQuery({
