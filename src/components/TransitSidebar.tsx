@@ -522,9 +522,13 @@ export function TransitSidebar({
               {startPin && endPin && (
                 <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
                   {tripPlan.options.length === 0 ? (
-                    <p className="text-[11px] text-amber-300/80">
-                      No routes connect these two areas. Try widening your radius.
-                    </p>
+                    tripPlan.transfers.length > 0 ? (
+                      <TransferItineraryList transfers={tripPlan.transfers} />
+                    ) : (
+                      <p className="text-[11px] text-amber-300/80">
+                        No direct or 1-transfer route found. Try widening your radius.
+                      </p>
+                    )
                   ) : (
                     <>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
