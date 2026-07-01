@@ -31,6 +31,7 @@ export interface TripPlan {
   endStops: PickableStopWithDistance[];
   connectingRoutes: string[];
   options: TripOption[];
+  transfers: TransferPlan[];
   nextEta: { routeId: string; time: number } | null;
 }
 
