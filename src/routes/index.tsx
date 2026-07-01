@@ -7,7 +7,7 @@ const TransitMap = lazy(() =>
 );
 import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
-import { getLiveVehicles, getTripUpdates, getStopDepartures, getTripPlanMatches } from "@/lib/transit.functions";
+import { getLiveVehicles, getTripUpdates, getStopDepartures, getTripPlanMatches, getTripPlanTransfers, type TransferPlan } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
 import { findStopIdsByQuery, findStopIdsByExactName, findNearestStop, findStopsWithinRadius, type PickableStop, type PickableStopWithDistance } from "@/lib/stops-index";
 
