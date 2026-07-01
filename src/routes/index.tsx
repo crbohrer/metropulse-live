@@ -238,8 +238,8 @@ function Index() {
     const firstActive = options.find((o) => o.hasActiveVehicle);
     const nextEta = firstActive ? { routeId: firstActive.routeId, time: firstActive.eta } : null;
 
-    return { startStop, endStop, startStops, endStops, connectingRoutes, options, nextEta };
-  }, [startStop, endStop, startStops, endStops, tripMatches, vehicles]);
+    return { startStop, endStop, startStops, endStops, connectingRoutes, options, transfers: transferData?.transfers ?? [], nextEta };
+  }, [startStop, endStop, startStops, endStops, tripMatches, vehicles, transferData]);
 
 
   const { data: routeGeo } = useQuery({
