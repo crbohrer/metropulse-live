@@ -60,6 +60,7 @@ interface Props {
       eta: number;
       hasActiveVehicle: boolean;
     }>;
+    transfers: TransferPlan[];
     nextEta: { routeId: string; time: number } | null;
   };
   walkRadiusMiles: number;
