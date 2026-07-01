@@ -660,3 +660,260 @@ export async function getLiveRailEta(data: { stopName: string; direction: string
   }
   return { ts: null };
  }
+
+// ============================================================================
+// 1-Transfer Trip Planner
+// ============================================================================
+interface StopRow { stop_id: number; stop_code: number; stop_name: string; stop_lat: number; stop_lon: number }
+const STOP_NAME_BY_ID = (() => {
+  const m = new Map<string, { name: string; lat: number; lng: number }>();
+  for (const s of stopsData as StopRow[]) {
+    if (!s?.stop_name) continue;
+    const rec = { name: s.stop_name, lat: s.stop_lat, lng: s.stop_lon };
+    m.set(String(s.stop_id), rec);
+    m.set(String(s.stop_id).replace(/^0+/, ""), rec);
+    if (s.stop_code) {
+      m.set(String(s.stop_code), rec);
+      m.set(String(s.stop_code).replace(/^0+/, ""), rec);
+    }
+  }
+  return m;
+})();
+function lookupStop(stopId: string) {
+  return STOP_NAME_BY_ID.get(stopId) || STOP_NAME_BY_ID.get(stopId.replace(/^0+/, "")) || null;
+}
+
+export interface TransferLeg {
+  routeId: string;
+  vehicleType: VehicleType;
+  boardStopId: string;
+  boardStopName: string;
+  alightStopId: string;
+  alightStopName: string;
+  boardEta: number;   // unix seconds
+  alightEta: number;  // unix seconds
+  tripId: string;
+  vehicleId: string | null;
+  hasActiveVehicle: boolean;
+}
+export interface TransferPlan {
+  key: string;
+  leg1: TransferLeg;
+  leg2: TransferLeg;
+  transferStopId: string;
+  transferStopName: string;
+  totalMinutes: number;
+  steps: string[];
+}
+
+export const getTripPlanTransfers = createServerFn({ method: "GET" })
+  .inputValidator((data: { startStopIds: string[]; endStopIds: string[]; activeTripIds?: string[] }) => data)
+  .handler(async ({ data }): Promise<{ transfers: TransferPlan[] }> => {
+    const key = process.env.VALLEY_METRO_API_KEY;
+    if (!key || !data.startStopIds?.length || !data.endStopIds?.length) return { transfers: [] };
+
+    const norm = (s: string) => String(s).trim().replace(/^0+/, "");
+    const buildSet = (ids: string[]) => {
+      const out = new Set<string>();
+      for (const id of ids) {
+        const raw = String(id).trim();
+        if (!raw) continue;
+        out.add(raw);
+        out.add(norm(raw));
+      }
+      return out;
+    };
+    const startTargets = buildSet(data.startStopIds);
+    const endTargets = buildSet(data.endStopIds);
+    const activeTrips = new Set((data.activeTripIds ?? []).map((id) => String(id).trim()).filter(Boolean));
+    const nowSec = Math.floor(Date.now() / 1000);
+    const url = `https://mna.mecatran.com/utw/ws/gtfsfeed/realtime/valleymetro?apiKey=${key}&asJson=true`;
+
+    try {
+      const res = await fetch(url, { headers: { accept: "application/json" } });
+      if (!res.ok) return { transfers: [] };
+      const feed = (await res.json()) as { entity?: TripUpdateEntity[] };
+
+      // Parse trips: routeId -> Trip[]
+      interface StopHit { stopId: string; sequence: number; time: number }
+      interface Trip { tripId: string; vehicleId: string | null; isActive: boolean; hits: StopHit[]; stopIndex: Map<string, number> }
+      const tripsByRoute = new Map<string, Trip[]>();
+      const stopsByRoute = new Map<string, Set<string>>(); // normalized stop ids
+
+      for (const e of feed.entity ?? []) {
+        const tu = e.tripUpdate;
+        if (!tu?.stopTimeUpdate?.length) continue;
+        const tripId = tu.trip?.tripId ?? e.id;
+        const routeId = tu.trip?.routeId ?? "—";
+        const vehicleId = tu.vehicle?.id ?? null;
+        const isActive = activeTrips.has(tripId) || (!!vehicleId && activeTrips.has(vehicleId));
+
+        const hits: StopHit[] = tu.stopTimeUpdate
+          .map((stu, order) => {
+            const stopId = stu.stopId ? String(stu.stopId).trim() : "";
+            const rawTime = stu.arrival?.time ?? stu.departure?.time;
+            const time = typeof rawTime === "string" ? Number(rawTime) : rawTime;
+            const rawSeq = stu.stopSequence;
+            const seqNum = typeof rawSeq === "string" ? Number(rawSeq) : rawSeq;
+            const sequence = typeof seqNum === "number" && Number.isFinite(seqNum) ? seqNum : order;
+            return { stopId, sequence, time: typeof time === "number" && Number.isFinite(time) ? time : 0 };
+          })
+          .filter((h) => h.stopId)
+          .sort((a, b) => a.sequence - b.sequence);
+        if (!hits.length) continue;
+
+        const stopIndex = new Map<string, number>();
+        hits.forEach((h, i) => {
+          stopIndex.set(h.stopId, i);
+          stopIndex.set(norm(h.stopId), i);
+        });
+
+        (tripsByRoute.get(routeId) ?? tripsByRoute.set(routeId, []).get(routeId)!).push({
+          tripId, vehicleId, isActive, hits, stopIndex,
+        });
+        let set = stopsByRoute.get(routeId);
+        if (!set) { set = new Set(); stopsByRoute.set(routeId, set); }
+        for (const h of hits) set.add(norm(h.stopId));
+      }
+
+      // Route sets
+      const startRoutes = new Set<string>();
+      const endRoutes = new Set<string>();
+      for (const [routeId, stops] of stopsByRoute) {
+        for (const s of stops) {
+          if (startTargets.has(s)) { startRoutes.add(routeId); break; }
+        }
+        for (const s of stops) {
+          if (endTargets.has(s)) { endRoutes.add(routeId); break; }
+        }
+      }
+      // Direct routes -> no transfer needed
+      const direct = new Set<string>();
+      for (const r of startRoutes) if (endRoutes.has(r)) direct.add(r);
+
+      // Find best leg1 for (route, transferStopNorm)
+      interface LegResult { boardHit: StopHit; alightHit: StopHit; trip: Trip }
+      const bestLeg = (
+        routeId: string,
+        fromTargets: Set<string>,
+        toTargets: Set<string>,
+        minBoardTime: number,
+      ): LegResult | null => {
+        const trips = tripsByRoute.get(routeId);
+        if (!trips) return null;
+        let best: LegResult | null = null;
+        for (const trip of trips) {
+          for (let i = 0; i < trip.hits.length; i++) {
+            const board = trip.hits[i];
+            if (!fromTargets.has(norm(board.stopId))) continue;
+            if (board.time && board.time < minBoardTime) continue;
+            for (let j = i + 1; j < trip.hits.length; j++) {
+              const alight = trip.hits[j];
+              if (!toTargets.has(norm(alight.stopId))) continue;
+              const boardT = board.time || minBoardTime;
+              if (!best) { best = { boardHit: board, alightHit: alight, trip }; break; }
+              const curT = best.boardHit.time || minBoardTime;
+              if (boardT < curT || (boardT === curT && trip.isActive && !best.trip.isActive)) {
+                best = { boardHit: board, alightHit: alight, trip };
+              }
+              break;
+            }
+          }
+        }
+        return best;
+      };
+
+      const plans: TransferPlan[] = [];
+      const usedKeys = new Set<string>();
+
+      for (const r1 of startRoutes) {
+        if (direct.has(r1)) continue;
+        const r1Stops = stopsByRoute.get(r1)!;
+        for (const r2 of endRoutes) {
+          if (direct.has(r2) || r1 === r2) continue;
+          const r2Stops = stopsByRoute.get(r2)!;
+          // candidate transfer stops = r1 ∩ r2, excluding start/end targets
+          let bestPlan: TransferPlan | null = null;
+          for (const s of r1Stops) {
+            if (!r2Stops.has(s)) continue;
+            if (startTargets.has(s) || endTargets.has(s)) continue;
+            const transferSet = new Set<string>([s]);
+            const leg1 = bestLeg(r1, startTargets, transferSet, nowSec);
+            if (!leg1) continue;
+            const arriveTransfer = leg1.alightHit.time || (leg1.boardHit.time ? leg1.boardHit.time + 300 : nowSec + 600);
+            const leg2 = bestLeg(r2, transferSet, endTargets, arriveTransfer);
+            if (!leg2) continue;
+
+            const transferInfo = lookupStop(s) || lookupStop(leg1.alightHit.stopId);
+            const transferName = transferInfo?.name || `Stop ${s}`;
+            const boardInfo1 = lookupStop(leg1.boardHit.stopId);
+            const alightInfo2 = lookupStop(leg2.alightHit.stopId);
+            const boardEta1 = leg1.boardHit.time || nowSec;
+            const alightEta1 = leg1.alightHit.time || boardEta1 + 300;
+            const boardEta2 = leg2.boardHit.time || alightEta1;
+            const alightEta2 = leg2.alightHit.time || boardEta2 + 300;
+
+            const l1: TransferLeg = {
+              routeId: r1,
+              vehicleType: classify(r1),
+              boardStopId: leg1.boardHit.stopId,
+              boardStopName: lookupStop(leg1.boardHit.stopId)?.name || `Stop ${leg1.boardHit.stopId}`,
+              alightStopId: leg1.alightHit.stopId,
+              alightStopName: transferName,
+              boardEta: boardEta1,
+              alightEta: alightEta1,
+              tripId: leg1.trip.tripId,
+              vehicleId: leg1.trip.vehicleId,
+              hasActiveVehicle: leg1.trip.isActive,
+            };
+            const l2: TransferLeg = {
+              routeId: r2,
+              vehicleType: classify(r2),
+              boardStopId: leg2.boardHit.stopId,
+              boardStopName: transferName,
+              alightStopId: leg2.alightHit.stopId,
+              alightStopName: alightInfo2?.name || `Stop ${leg2.alightHit.stopId}`,
+              boardEta: boardEta2,
+              alightEta: alightEta2,
+              tripId: leg2.trip.tripId,
+              vehicleId: leg2.trip.vehicleId,
+              hasActiveVehicle: leg2.trip.isActive,
+            };
+            const totalMinutes = Math.max(1, Math.round((alightEta2 - boardEta1) / 60));
+            const steps = [
+              `Board ${routeLabel(l1)} near your location${boardInfo1 ? ` at ${boardInfo1.name}` : ""}.`,
+              `Ride to ${transferName} and get off.`,
+              `Transfer to ${routeLabel(l2)} at the same platform.`,
+              `Ride to ${l2.alightStopName} near your destination.`,
+            ];
+            const key = `${r1}|${r2}|${s}`;
+            const plan: TransferPlan = {
+              key, leg1: l1, leg2: l2, transferStopId: s, transferStopName: transferName,
+              totalMinutes, steps,
+            };
+            if (!bestPlan || plan.leg1.boardEta < bestPlan.leg1.boardEta) bestPlan = plan;
+          }
+          if (bestPlan && !usedKeys.has(bestPlan.key)) {
+            usedKeys.add(bestPlan.key);
+            plans.push(bestPlan);
+          }
+        }
+      }
+
+      plans.sort((a, b) => {
+        const aa = a.leg1.hasActiveVehicle && a.leg2.hasActiveVehicle ? 0 : 1;
+        const bb = b.leg1.hasActiveVehicle && b.leg2.hasActiveVehicle ? 0 : 1;
+        if (aa !== bb) return aa - bb;
+        return a.leg1.boardEta - b.leg1.boardEta;
+      });
+      return { transfers: plans.slice(0, 6) };
+    } catch {
+      return { transfers: [] };
+    }
+  });
+
+function routeLabel(l: TransferLeg): string {
+  if (l.vehicleType === "rail") return `Light Rail ${l.routeId}`;
+  if (l.vehicleType === "streetcar") return "the Streetcar";
+  return `Route ${l.routeId}`;
+}
