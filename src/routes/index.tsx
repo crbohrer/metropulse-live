@@ -131,6 +131,16 @@ function Index() {
     refetchIntervalInBackground: true,
   });
 
+  const fetchTripPlanTransfers = useServerFn(getTripPlanTransfers);
+  const directOptionsCount = (tripMatches?.matches?.length ?? 0);
+  const { data: transferData } = useQuery({
+    queryKey: ["plan-trip-transfers", startStopIds.join(","), endStopIds.join(","), activeTripIds.join(",")],
+    queryFn: () => fetchTripPlanTransfers({ data: { startStopIds, endStopIds, activeTripIds } }),
+    enabled: startStopIds.length > 0 && endStopIds.length > 0 && directOptionsCount === 0,
+    refetchInterval: 30000,
+    refetchIntervalInBackground: true,
+  });
+
   const tripPlan: TripPlan = useMemo(() => {
     const empty: TripPlan = {
       startStop,
@@ -139,6 +149,7 @@ function Index() {
       endStops,
       connectingRoutes: [],
       options: [],
+      transfers: transferData?.transfers ?? [],
       nextEta: null,
     };
     if (!startStop || !endStop || !tripMatches?.matches) return empty;
