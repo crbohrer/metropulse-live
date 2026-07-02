@@ -846,17 +846,88 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
         return best;
       };
 
+      // Which routes have any start-target hit / any end-target hit
+      const startRoutes = new Set<string>();
+      const endRoutes = new Set<string>();
+      for (const [routeId, stops] of stopsByRoute) {
+        for (const s of stops) { if (startTargets.has(s)) { startRoutes.add(routeId); break; } }
+        for (const s of stops) { if (endTargets.has(s)) { endRoutes.add(routeId); break; } }
+      }
 
       const plans: TransferPlan[] = [];
       const usedKeys = new Set<string>();
 
+      const buildPlan = (
+        r1: string,
+        r2: string,
+        s: string,
+        leg1: LegResult,
+        leg2: LegResult,
+        sameRouteKind?: "continuation" | "reversal",
+      ): TransferPlan => {
+        const transferInfo = lookupStop(s) || lookupStop(leg1.alightHit.stopId);
+        const transferName = transferInfo?.name || `Stop ${s}`;
+        const boardInfo1 = lookupStop(leg1.boardHit.stopId);
+        const alightInfo2 = lookupStop(leg2.alightHit.stopId);
+        const boardEta1 = leg1.boardHit.time || nowSec;
+        const alightEta1 = leg1.alightHit.time || boardEta1 + 300;
+        const boardEta2 = leg2.boardHit.time || alightEta1;
+        const alightEta2 = leg2.alightHit.time || boardEta2 + 300;
+        const dir1 = leg1.trip.direction ? CARDINAL_NAME[leg1.trip.direction] : null;
+        const dir2 = leg2.trip.direction ? CARDINAL_NAME[leg2.trip.direction] : null;
+
+        const l1: TransferLeg = {
+          routeId: r1,
+          vehicleType: classify(r1),
+          boardStopId: leg1.boardHit.stopId,
+          boardStopName: boardInfo1?.name || `Stop ${leg1.boardHit.stopId}`,
+          alightStopId: leg1.alightHit.stopId,
+          alightStopName: transferName,
+          boardEta: boardEta1,
+          alightEta: alightEta1,
+          tripId: leg1.trip.tripId,
+          vehicleId: leg1.trip.vehicleId,
+          hasActiveVehicle: leg1.trip.isActive,
+          direction: dir1,
+        };
+        const l2: TransferLeg = {
+          routeId: r2,
+          vehicleType: classify(r2),
+          boardStopId: leg2.boardHit.stopId,
+          boardStopName: transferName,
+          alightStopId: leg2.alightHit.stopId,
+          alightStopName: alightInfo2?.name || `Stop ${leg2.alightHit.stopId}`,
+          boardEta: boardEta2,
+          alightEta: alightEta2,
+          tripId: leg2.trip.tripId,
+          vehicleId: leg2.trip.vehicleId,
+          hasActiveVehicle: leg2.trip.isActive,
+          direction: dir2,
+        };
+        const totalMinutes = Math.max(1, Math.round((alightEta2 - boardEta1) / 60));
+        const transferStep =
+          sameRouteKind === "continuation"
+            ? `Stay on board as the vehicle turns ${dir2 ?? "toward your destination"}.`
+            : sameRouteKind === "reversal"
+              ? `Exit the train, cross to the opposite platform, and board the ${dir2 ?? routeLabel(l2)} train.`
+              : `Transfer to ${routeLabel(l2)} at the same platform.`;
+        const steps = [
+          `Board ${routeLabel(l1)}${dir1 ? ` (${dir1})` : ""}${boardInfo1 ? ` at ${boardInfo1.name}` : ""}.`,
+          `Ride to ${transferName}.`,
+          transferStep,
+          `Ride to ${l2.alightStopName} near your destination.`,
+        ];
+        const key = `${r1}|${r2}|${s}|${sameRouteKind ?? "x"}`;
+        return { key, leg1: l1, leg2: l2, transferStopId: s, transferStopName: transferName, totalMinutes, steps, sameRouteKind };
+      };
+
+      // ---- Cross-route transfers ----
       for (const r1 of startRoutes) {
         if (direct.has(r1)) continue;
         const r1Stops = stopsByRoute.get(r1)!;
         for (const r2 of endRoutes) {
           if (direct.has(r2) || r1 === r2) continue;
           const r2Stops = stopsByRoute.get(r2)!;
-          // candidate transfer stops = r1 ∩ r2, excluding start/end targets
           let bestPlan: TransferPlan | null = null;
           for (const s of r1Stops) {
             if (!r2Stops.has(s)) continue;
@@ -867,54 +938,7 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
             const arriveTransfer = leg1.alightHit.time || (leg1.boardHit.time ? leg1.boardHit.time + 300 : nowSec + 600);
             const leg2 = bestLeg(r2, transferSet, endTargets, arriveTransfer);
             if (!leg2) continue;
-
-            const transferInfo = lookupStop(s) || lookupStop(leg1.alightHit.stopId);
-            const transferName = transferInfo?.name || `Stop ${s}`;
-            const boardInfo1 = lookupStop(leg1.boardHit.stopId);
-            const alightInfo2 = lookupStop(leg2.alightHit.stopId);
-            const boardEta1 = leg1.boardHit.time || nowSec;
-            const alightEta1 = leg1.alightHit.time || boardEta1 + 300;
-            const boardEta2 = leg2.boardHit.time || alightEta1;
-            const alightEta2 = leg2.alightHit.time || boardEta2 + 300;
-
-            const l1: TransferLeg = {
-              routeId: r1,
-              vehicleType: classify(r1),
-              boardStopId: leg1.boardHit.stopId,
-              boardStopName: lookupStop(leg1.boardHit.stopId)?.name || `Stop ${leg1.boardHit.stopId}`,
-              alightStopId: leg1.alightHit.stopId,
-              alightStopName: transferName,
-              boardEta: boardEta1,
-              alightEta: alightEta1,
-              tripId: leg1.trip.tripId,
-              vehicleId: leg1.trip.vehicleId,
-              hasActiveVehicle: leg1.trip.isActive,
-            };
-            const l2: TransferLeg = {
-              routeId: r2,
-              vehicleType: classify(r2),
-              boardStopId: leg2.boardHit.stopId,
-              boardStopName: transferName,
-              alightStopId: leg2.alightHit.stopId,
-              alightStopName: alightInfo2?.name || `Stop ${leg2.alightHit.stopId}`,
-              boardEta: boardEta2,
-              alightEta: alightEta2,
-              tripId: leg2.trip.tripId,
-              vehicleId: leg2.trip.vehicleId,
-              hasActiveVehicle: leg2.trip.isActive,
-            };
-            const totalMinutes = Math.max(1, Math.round((alightEta2 - boardEta1) / 60));
-            const steps = [
-              `Board ${routeLabel(l1)} near your location${boardInfo1 ? ` at ${boardInfo1.name}` : ""}.`,
-              `Ride to ${transferName} and get off.`,
-              `Transfer to ${routeLabel(l2)} at the same platform.`,
-              `Ride to ${l2.alightStopName} near your destination.`,
-            ];
-            const key = `${r1}|${r2}|${s}`;
-            const plan: TransferPlan = {
-              key, leg1: l1, leg2: l2, transferStopId: s, transferStopName: transferName,
-              totalMinutes, steps,
-            };
+            const plan = buildPlan(r1, r2, s, leg1, leg2);
             if (!bestPlan || plan.leg1.boardEta < bestPlan.leg1.boardEta) bestPlan = plan;
           }
           if (bestPlan && !usedKeys.has(bestPlan.key)) {
@@ -923,6 +947,34 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
           }
         }
       }
+
+      // ---- Same-route transfers (direction changes: 90° continuation or 180° reversal) ----
+      for (const r of startRoutes) {
+        if (!endRoutes.has(r)) continue;
+        if (direct.has(r)) continue; // covered by direct planner
+        const rStops = stopsByRoute.get(r)!;
+        let bestPlan: TransferPlan | null = null;
+        for (const s of rStops) {
+          if (startTargets.has(s) || endTargets.has(s)) continue;
+          const transferSet = new Set<string>([s]);
+          const leg1 = bestLeg(r, startTargets, transferSet, nowSec);
+          if (!leg1 || !leg1.trip.direction) continue;
+          const arriveTransfer = leg1.alightHit.time || (leg1.boardHit.time ? leg1.boardHit.time + 300 : nowSec + 600);
+          const leg2 = bestLeg(r, transferSet, endTargets, arriveTransfer, leg1.trip.direction);
+          if (!leg2 || !leg2.trip.direction) continue;
+          const d1 = leg1.trip.direction, d2 = leg2.trip.direction;
+          if (d1 === d2) continue;
+          const kind: "continuation" | "reversal" = isOpposite(d1, d2) ? "reversal" : "continuation";
+          const plan = buildPlan(r, r, s, leg1, leg2, kind);
+          if (!bestPlan || plan.leg1.boardEta < bestPlan.leg1.boardEta) bestPlan = plan;
+        }
+        if (bestPlan && !usedKeys.has(bestPlan.key)) {
+          usedKeys.add(bestPlan.key);
+          plans.push(bestPlan);
+        }
+      }
+
+
 
       plans.sort((a, b) => {
         const aa = a.leg1.hasActiveVehicle && a.leg2.hasActiveVehicle ? 0 : 1;
