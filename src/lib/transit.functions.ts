@@ -746,9 +746,21 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
 
       // Parse trips: routeId -> Trip[]
       interface StopHit { stopId: string; sequence: number; time: number }
-      interface Trip { tripId: string; vehicleId: string | null; isActive: boolean; hits: StopHit[]; stopIndex: Map<string, number> }
+      interface Trip { tripId: string; vehicleId: string | null; isActive: boolean; hits: StopHit[]; stopIndex: Map<string, number>; direction: Cardinal | null }
       const tripsByRoute = new Map<string, Trip[]>();
       const stopsByRoute = new Map<string, Set<string>>(); // normalized stop ids
+
+      const computeTripDirection = (hits: StopHit[]): Cardinal | null => {
+        if (hits.length < 2) return null;
+        const first = lookupStop(hits[0].stopId);
+        const last = lookupStop(hits[hits.length - 1].stopId);
+        if (!first || !last) return null;
+        const dLat = last.lat - first.lat;
+        const dLng = last.lng - first.lng;
+        if (Math.abs(dLat) < 1e-6 && Math.abs(dLng) < 1e-6) return null;
+        if (Math.abs(dLat) >= Math.abs(dLng)) return dLat > 0 ? "N" : "S";
+        return dLng > 0 ? "E" : "W";
+      };
 
       for (const e of feed.entity ?? []) {
         const tu = e.tripUpdate;
@@ -779,40 +791,41 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
         });
 
         (tripsByRoute.get(routeId) ?? tripsByRoute.set(routeId, []).get(routeId)!).push({
-          tripId, vehicleId, isActive, hits, stopIndex,
+          tripId, vehicleId, isActive, hits, stopIndex, direction: computeTripDirection(hits),
         });
         let set = stopsByRoute.get(routeId);
         if (!set) { set = new Set(); stopsByRoute.set(routeId, set); }
         for (const h of hits) set.add(norm(h.stopId));
       }
 
-      // Route sets
-      const startRoutes = new Set<string>();
-      const endRoutes = new Set<string>();
-      for (const [routeId, stops] of stopsByRoute) {
-        for (const s of stops) {
-          if (startTargets.has(s)) { startRoutes.add(routeId); break; }
-        }
-        for (const s of stops) {
-          if (endTargets.has(s)) { endRoutes.add(routeId); break; }
+      // A route is "direct" only when some single trip visits a start target and later an end target.
+      const direct = new Set<string>();
+      for (const [routeId, trips] of tripsByRoute) {
+        for (const trip of trips) {
+          let seenStart = false;
+          for (const h of trip.hits) {
+            const nid = norm(h.stopId);
+            if (!seenStart) { if (startTargets.has(nid)) seenStart = true; }
+            else if (endTargets.has(nid)) { direct.add(routeId); break; }
+          }
+          if (direct.has(routeId)) break;
         }
       }
-      // Direct routes -> no transfer needed
-      const direct = new Set<string>();
-      for (const r of startRoutes) if (endRoutes.has(r)) direct.add(r);
 
-      // Find best leg1 for (route, transferStopNorm)
+      // Find best leg for (route, fromTargets -> toTargets), optionally excluding trips going a given direction.
       interface LegResult { boardHit: StopHit; alightHit: StopHit; trip: Trip }
       const bestLeg = (
         routeId: string,
         fromTargets: Set<string>,
         toTargets: Set<string>,
         minBoardTime: number,
+        excludeDir?: Cardinal,
       ): LegResult | null => {
         const trips = tripsByRoute.get(routeId);
         if (!trips) return null;
         let best: LegResult | null = null;
         for (const trip of trips) {
+          if (excludeDir && trip.direction === excludeDir) continue;
           for (let i = 0; i < trip.hits.length; i++) {
             const board = trip.hits[i];
             if (!fromTargets.has(norm(board.stopId))) continue;
@@ -832,6 +845,7 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
         }
         return best;
       };
+
 
       const plans: TransferPlan[] = [];
       const usedKeys = new Set<string>();
