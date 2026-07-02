@@ -695,6 +695,7 @@ export interface TransferLeg {
   tripId: string;
   vehicleId: string | null;
   hasActiveVehicle: boolean;
+  direction: string | null; // "Northbound" | "Southbound" | "Eastbound" | "Westbound"
 }
 export interface TransferPlan {
   key: string;
@@ -704,7 +705,16 @@ export interface TransferPlan {
   transferStopName: string;
   totalMinutes: number;
   steps: string[];
+  /** Set when leg1 and leg2 share a route but change direction. */
+  sameRouteKind?: "continuation" | "reversal";
 }
+
+type Cardinal = "N" | "S" | "E" | "W";
+const CARDINAL_NAME: Record<Cardinal, string> = { N: "Northbound", S: "Southbound", E: "Eastbound", W: "Westbound" };
+function isOpposite(a: Cardinal, b: Cardinal): boolean {
+  return (a === "N" && b === "S") || (a === "S" && b === "N") || (a === "E" && b === "W") || (a === "W" && b === "E");
+}
+
 
 export const getTripPlanTransfers = createServerFn({ method: "GET" })
   .inputValidator((data: { startStopIds: string[]; endStopIds: string[]; activeTripIds?: string[] }) => data)
