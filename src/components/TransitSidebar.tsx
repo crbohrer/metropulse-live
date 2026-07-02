@@ -1061,21 +1061,30 @@ function TransferItineraryList({ transfers }: { transfers: TransferPlan[] }) {
                   )}
                 </li>
 
-                {/* Step 3 – Transfer */}
+                {/* Step 3 – Transfer / continuation */}
                 <li className="relative">
-                  <span className="absolute -left-[21px] top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-amber-400 bg-background">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                  <span className={`absolute -left-[21px] top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 bg-background ${
+                    plan.sameRouteKind === "continuation" ? "border-sky-400" : "border-amber-400"
+                  }`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${
+                      plan.sameRouteKind === "continuation" ? "bg-sky-400" : "bg-amber-400"
+                    }`} />
                   </span>
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
                     <LegIcon type={plan.leg2.vehicleType} />
-                    Transfer to {leg2RouteLabel} at the same platform
+                    {plan.sameRouteKind === "continuation"
+                      ? `Stay on board as the vehicle turns ${plan.leg2.direction ?? "toward your destination"}`
+                      : plan.sameRouteKind === "reversal"
+                        ? `Exit the train, cross to the opposite platform, and board the ${plan.leg2.direction ?? leg2RouteLabel} train`
+                        : `Transfer to ${leg2RouteLabel} at the same platform`}
                   </p>
-                  {plan.leg2.boardEta > 0 && (
+                  {plan.sameRouteKind !== "continuation" && plan.leg2.boardEta > 0 && (
                     <p className="text-[10px] text-amber-200/90" suppressHydrationWarning>
                       Next departure ~{new Date(plan.leg2.boardEta * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                     </p>
                   )}
                 </li>
+
 
                 {/* Step 4 – Arrive */}
                 <li className="relative">
