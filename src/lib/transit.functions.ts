@@ -873,24 +873,58 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
         for (const s of stops) { if (endTargets.has(s)) { endRoutes.add(routeId); break; } }
       }
 
+      // Haversine miles between two coordinates.
+      const milesBetween = (aLat: number, aLng: number, bLat: number, bLng: number): number => {
+        const R = 3958.7613;
+        const toRad = (v: number) => (v * Math.PI) / 180;
+        const dLat = toRad(bLat - aLat);
+        const dLng = toRad(bLng - aLng);
+        const h =
+          Math.sin(dLat / 2) ** 2 +
+          Math.sin(dLng / 2) ** 2 * Math.cos(toRad(aLat)) * Math.cos(toRad(bLat));
+        return 2 * R * Math.asin(Math.sqrt(h));
+      };
+      const WALK_TRANSFER_MILES = 0.25;
+
+      // Full physical reach per route, with coordinates, so hubs can be exact matches OR
+      // adjacent platforms within the 0.25-mile walking-transfer radius.
+      interface RouteStop { sid: string; lat: number; lng: number; name: string }
+      const reachByRoute = new Map<string, RouteStop[]>();
+      for (const [routeId, stops] of stopsByRoute) {
+        const out: RouteStop[] = [];
+        for (const sid of stops) {
+          const info = lookupStop(sid);
+          if (!info) continue;
+          out.push({ sid, lat: info.lat, lng: info.lng, name: info.name });
+        }
+        reachByRoute.set(routeId, out);
+      }
+
       const plans: TransferPlan[] = [];
       const usedKeys = new Set<string>();
 
       const buildPlan = (
         r1: string,
         r2: string,
-        s: string,
+        hubStopId: string,
         leg1: LegResult,
         leg2: LegResult,
-        sameRouteKind?: "continuation" | "reversal",
+        opts?: { sameRouteKind?: "continuation" | "reversal"; walkMiles?: number },
       ): TransferPlan => {
-        const transferInfo = lookupStop(s) || lookupStop(leg1.alightHit.stopId);
-        const transferName = transferInfo?.name || `Stop ${s}`;
+        const sameRouteKind = opts?.sameRouteKind;
+        const walkMiles = opts?.walkMiles ?? 0;
+        const alight1Info = lookupStop(leg1.alightHit.stopId);
+        const board2Info = lookupStop(leg2.boardHit.stopId);
+        const hubInfo = lookupStop(hubStopId) || alight1Info || board2Info;
+        const alight1Name = alight1Info?.name || `Stop ${leg1.alightHit.stopId}`;
+        const board2Name = board2Info?.name || `Stop ${leg2.boardHit.stopId}`;
+        const hubName = hubInfo?.name || alight1Name;
         const boardInfo1 = lookupStop(leg1.boardHit.stopId);
         const alightInfo2 = lookupStop(leg2.alightHit.stopId);
         const boardEta1 = leg1.boardHit.time || nowSec;
         const alightEta1 = leg1.alightHit.time || boardEta1 + 300;
-        const boardEta2 = leg2.boardHit.time || alightEta1;
+        const walkSeconds = walkMiles > 0 ? Math.max(60, Math.round(walkMiles * 20 * 60)) : 0;
+        const boardEta2 = leg2.boardHit.time || alightEta1 + walkSeconds;
         const alightEta2 = leg2.alightHit.time || boardEta2 + 300;
         const dir1 = leg1.trip.direction ? CARDINAL_NAME[leg1.trip.direction] : null;
         const dir2 = leg2.trip.direction ? CARDINAL_NAME[leg2.trip.direction] : null;
@@ -901,7 +935,7 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
           boardStopId: leg1.boardHit.stopId,
           boardStopName: boardInfo1?.name || `Stop ${leg1.boardHit.stopId}`,
           alightStopId: leg1.alightHit.stopId,
-          alightStopName: transferName,
+          alightStopName: alight1Name,
           boardEta: boardEta1,
           alightEta: alightEta1,
           tripId: leg1.trip.tripId,
@@ -913,7 +947,7 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
           routeId: r2,
           vehicleType: classify(r2),
           boardStopId: leg2.boardHit.stopId,
-          boardStopName: transferName,
+          boardStopName: board2Name,
           alightStopId: leg2.alightHit.stopId,
           alightStopName: alightInfo2?.name || `Stop ${leg2.alightHit.stopId}`,
           boardEta: boardEta2,
@@ -924,32 +958,44 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
           direction: dir2,
         };
         const totalMinutes = Math.max(1, Math.round((alightEta2 - boardEta1) / 60));
+        const walkMin = walkSeconds > 0 ? Math.max(1, Math.round(walkSeconds / 60)) : 0;
         const transferStep =
           sameRouteKind === "continuation"
             ? `Stay on board as the vehicle turns ${dir2 ?? "toward your destination"}.`
             : sameRouteKind === "reversal"
               ? `Exit the train, cross to the opposite platform, and board the ${dir2 ?? routeLabel(l2)} train.`
-              : `Transfer to ${routeLabel(l2)} at the same platform.`;
+              : walkMin > 0
+                ? `Walk ~${walkMin} min from ${alight1Name} to ${board2Name} and board ${routeLabel(l2)}.`
+                : `Transfer to ${routeLabel(l2)} at the same platform.`;
         const steps = [
           `Board ${routeLabel(l1)}${dir1 ? ` (${dir1})` : ""}${boardInfo1 ? ` at ${boardInfo1.name}` : ""}.`,
-          `Ride to ${transferName}.`,
+          `Ride to ${hubName}.`,
           transferStep,
-          `Ride to ${l2.alightStopName} near your destination.`,
+          `Ride ${routeLabel(l2)} to ${l2.alightStopName} near your destination.`,
         ];
-        const key = `${r1}|${r2}|${s}|${sameRouteKind ?? "x"}`;
-        return { key, leg1: l1, leg2: l2, transferStopId: s, transferStopName: transferName, totalMinutes, steps, sameRouteKind };
+        const key = `${r1}|${r2}|${hubStopId}|${sameRouteKind ?? (walkMin > 0 ? "walk" : "x")}`;
+        return { key, leg1: l1, leg2: l2, transferStopId: hubStopId, transferStopName: hubName, totalMinutes, steps, sameRouteKind };
       };
 
-      // ---- Cross-route transfers ----
+      // ---- Two-Leg Search: cross-route transfers ----
+      // For every (start-route, end-route) pair (r1 != r2, neither already direct), intersect
+      // their full physical reach. Prefer exact shared stops; fall back to adjacent platforms
+      // within the 0.25-mile walking-transfer radius as valid transfer hubs.
       for (const r1 of startRoutes) {
         if (direct.has(r1)) continue;
-        const r1Stops = stopsByRoute.get(r1)!;
+        const r1Reach = reachByRoute.get(r1);
+        if (!r1Reach?.length) continue;
+        const r1StopSet = stopsByRoute.get(r1)!;
         for (const r2 of endRoutes) {
           if (direct.has(r2) || r1 === r2) continue;
-          const r2Stops = stopsByRoute.get(r2)!;
+          const r2Reach = reachByRoute.get(r2);
+          if (!r2Reach?.length) continue;
+          const r2StopSet = stopsByRoute.get(r2)!;
           let bestPlan: TransferPlan | null = null;
-          for (const s of r1Stops) {
-            if (!r2Stops.has(s)) continue;
+
+          // Pass A: exact shared platform.
+          for (const s of r1StopSet) {
+            if (!r2StopSet.has(s)) continue;
             if (startTargets.has(s) || endTargets.has(s)) continue;
             const transferSet = new Set<string>([s]);
             const leg1 = bestLeg(r1, startTargets, transferSet, nowSec);
@@ -960,6 +1006,33 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
             const plan = buildPlan(r1, r2, s, leg1, leg2);
             if (!bestPlan || plan.leg1.boardEta < bestPlan.leg1.boardEta) bestPlan = plan;
           }
+
+          // Pass B: walking transfer between adjacent platforms (only if no exact hub worked).
+          if (!bestPlan) {
+            let bestWalk: { s1: string; s2: string; miles: number } | null = null;
+            for (const a of r1Reach) {
+              if (startTargets.has(a.sid) || endTargets.has(a.sid)) continue;
+              for (const b of r2Reach) {
+                if (a.sid === b.sid) continue;
+                if (startTargets.has(b.sid) || endTargets.has(b.sid)) continue;
+                const d = milesBetween(a.lat, a.lng, b.lat, b.lng);
+                if (d > WALK_TRANSFER_MILES) continue;
+                if (!bestWalk || d < bestWalk.miles) bestWalk = { s1: a.sid, s2: b.sid, miles: d };
+              }
+            }
+            if (bestWalk) {
+              const leg1 = bestLeg(r1, startTargets, new Set([bestWalk.s1]), nowSec);
+              const walkSec = Math.max(60, Math.round(bestWalk.miles * 20 * 60));
+              const arriveTransfer = leg1?.alightHit.time
+                ? leg1.alightHit.time + walkSec
+                : (leg1?.boardHit.time ? leg1.boardHit.time + 300 + walkSec : nowSec + 600 + walkSec);
+              const leg2 = leg1 ? bestLeg(r2, new Set([bestWalk.s2]), endTargets, arriveTransfer) : null;
+              if (leg1 && leg2) {
+                bestPlan = buildPlan(r1, r2, bestWalk.s1, leg1, leg2, { walkMiles: bestWalk.miles });
+              }
+            }
+          }
+
           if (bestPlan && !usedKeys.has(bestPlan.key)) {
             usedKeys.add(bestPlan.key);
             plans.push(bestPlan);
@@ -984,7 +1057,7 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
           const d1 = leg1.trip.direction, d2 = leg2.trip.direction;
           if (d1 === d2) continue;
           const kind: "continuation" | "reversal" = isOpposite(d1, d2) ? "reversal" : "continuation";
-          const plan = buildPlan(r, r, s, leg1, leg2, kind);
+          const plan = buildPlan(r, r, s, leg1, leg2, { sameRouteKind: kind });
           if (!bestPlan || plan.leg1.boardEta < bestPlan.leg1.boardEta) bestPlan = plan;
         }
         if (bestPlan && !usedKeys.has(bestPlan.key)) {
@@ -992,6 +1065,7 @@ export const getTripPlanTransfers = createServerFn({ method: "GET" })
           plans.push(bestPlan);
         }
       }
+
 
 
 
