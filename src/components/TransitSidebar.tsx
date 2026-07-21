@@ -41,36 +41,10 @@ interface Props {
   onClearSelectedStop: () => void;
   onPickStop: (s: { id: string; name: string; lat: number; lng: number }) => void;
   stopDepartures: StopDeparture[] | null;
-  routingMode: boolean;
-  startPin: { lat: number; lng: number } | null;
-  endPin: { lat: number; lng: number } | null;
-  tripPlan: {
-    startStop: { id: string; name: string; lat: number; lng: number } | null;
-    endStop: { id: string; name: string; lat: number; lng: number } | null;
-    startStops: Array<{ id: string; name: string; lat: number; lng: number; miles: number }>;
-    endStops: Array<{ id: string; name: string; lat: number; lng: number; miles: number }>;
-    connectingRoutes: string[];
-    options: Array<{
-      tripId: string;
-      vehicleId: string | null;
-      routeId: string;
-      direction: string;
-      vehicleType: "bus" | "rail" | "streetcar";
-      startStop: { id: string; name: string; lat: number; lng: number; miles: number };
-      endStop: { id: string; name: string; lat: number; lng: number; miles: number };
-      walkMinutes: number;
-      eta: number;
-      hasActiveVehicle: boolean;
-    }>;
-    transfers: TransferPlan[];
-    nextEta: { routeId: string; time: number } | null;
-  };
-  walkRadiusMiles: number;
-  onChangeWalkRadius: (m: number) => void;
-  selectedTripKey: string | null;
-  onSelectTripOption: (key: string) => void;
-  onToggleRoutingMode: () => void;
-  onClearTripPlan: () => void;
+  favoriteStops: FavoriteStop[];
+  isFavorite: (name: string) => boolean;
+  onToggleFavorite: (stop: FavoriteStop) => void;
+  onRemoveFavorite: (name: string) => void;
 }
 
 const DIRECTION_OPTIONS = ["Northbound", "Southbound", "Eastbound", "Westbound"] as const;
@@ -116,16 +90,10 @@ export function TransitSidebar({
   onClearSelectedStop,
   onPickStop,
   stopDepartures,
-  routingMode,
-  startPin,
-  endPin,
-  tripPlan,
-  walkRadiusMiles,
-  onChangeWalkRadius,
-  selectedTripKey,
-  onSelectTripOption,
-  onToggleRoutingMode,
-  onClearTripPlan,
+  favoriteStops,
+  isFavorite,
+  onToggleFavorite,
+  onRemoveFavorite,
 }: Props) {
   const fetchLiveAlerts = useServerFn(getLiveAlerts);
   const { data: liveAlertsData } = useQuery({
