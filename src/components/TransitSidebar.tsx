@@ -625,9 +625,24 @@ export function TransitSidebar({
               {last ? last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "..."}
             </span>
           </div>
-          <div className="mb-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Departures</div>
-            <div className="truncate text-sm font-semibold">{selectedStop.name}</div>
+          <div className="mb-2 flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Departures</div>
+              <div className="truncate text-sm font-semibold">{selectedStop.name}</div>
+            </div>
+            <FavoriteStar
+              active={isFavorite(selectedStop.name)}
+              onClick={() =>
+                onToggleFavorite({
+                  id: selectedStop.id,
+                  name: selectedStop.name,
+                  lat: selectedStop.lat,
+                  lng: selectedStop.lng,
+                })
+              }
+              label={selectedStop.name}
+              size={18}
+            />
           </div>
           <div className="-mr-2 mb-4 max-h-[28%] overflow-y-auto pr-2">
             {departures.length === 0 && (
