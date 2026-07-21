@@ -1,6 +1,7 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, CircleMarker, Circle, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, CircleMarker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, useMemo } from "react";
+import { FavoriteStar } from "@/components/FavoriteStar";
 import type { Vehicle, VehicleType } from "@/lib/mock-transit";
 import type { GeoJSON as RouteGeoJSON, GeoJSONFeature } from "@/lib/route-shapes.functions";
 import { RAIL_STATION_CODES } from "@/lib/transit.functions";
@@ -55,35 +56,15 @@ function FlyToActive({ vehicle }: { vehicle: Vehicle | null }) {
 }
 
 function MapClickHandler({
-  routingMode,
-  onDropPin,
   onBackgroundClick,
 }: {
-  routingMode: boolean;
-  onDropPin: (p: { lat: number; lng: number }) => void;
   onBackgroundClick: () => void;
 }) {
   useMapEvents({
-    click: (e) => {
-      if (routingMode) onDropPin({ lat: e.latlng.lat, lng: e.latlng.lng });
-      else onBackgroundClick();
-    },
+    click: () => onBackgroundClick(),
   });
   return null;
 }
-
-const startPinIcon = L.divIcon({
-  className: "",
-  html: `<div style="width:22px;height:22px;border-radius:50%;background:#10b981;border:3px solid #ffffff;box-shadow:0 0 0 2px #10b981, 0 2px 8px rgba(0,0,0,0.5);"></div>`,
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-});
-const endPinIcon = L.divIcon({
-  className: "",
-  html: `<div style="width:22px;height:22px;border-radius:50%;background:#ef4444;border:3px solid #ffffff;box-shadow:0 0 0 2px #ef4444, 0 2px 8px rgba(0,0,0,0.5);"></div>`,
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-});
 
 function FlyToStop({ stop }: { stop: { lat: number; lng: number } | null }) {
   const map = useMap();
@@ -117,15 +98,8 @@ interface Props {
   onClearSelection: () => void;
   onSelectVehicle: (v: Vehicle) => void;
   onShowRoute: () => void;
-  routingMode: boolean;
-  startPin: { lat: number; lng: number } | null;
-  endPin: { lat: number; lng: number } | null;
-  onDropPin: (p: { lat: number; lng: number }) => void;
-  onMoveStartPin: (p: { lat: number; lng: number }) => void;
-  onMoveEndPin: (p: { lat: number; lng: number }) => void;
-  startRadiusStops?: { id: string; name: string; lat: number; lng: number; miles: number }[];
-  endRadiusStops?: { id: string; name: string; lat: number; lng: number; miles: number }[];
-  radiusMiles?: number;
+  isFavorite: (name: string) => boolean;
+  onToggleFavorite: (stop: { id: string; name: string; lat: number; lng: number }) => void;
 }
 
 export function TransitMap({
@@ -141,15 +115,8 @@ export function TransitMap({
   onClearSelection,
   onSelectVehicle,
   onShowRoute,
-  routingMode,
-  startPin,
-  endPin,
-  onDropPin,
-  onMoveStartPin,
-  onMoveEndPin,
-  startRadiusStops = [],
-  endRadiusStops = [],
-  radiusMiles = 1,
+  isFavorite,
+  onToggleFavorite,
 }: Props) {
   // Hide all other vehicles when in route view.
   const displayedVehicles = isRouteViewActive && activeVehicle
@@ -368,95 +335,10 @@ export function TransitMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
-      <MapClickHandler
-        routingMode={routingMode}
-        onDropPin={onDropPin}
-        onBackgroundClick={onClearSelection}
-      />
+      <MapClickHandler onBackgroundClick={onClearSelection} />
       <FlyToActive vehicle={activeVehicle} />
       <FlyToStop stop={focusedStop} />
 
-      {startPin && (
-        <Marker
-          position={[startPin.lat, startPin.lng]}
-          icon={startPinIcon}
-          draggable
-          eventHandlers={{
-            dragend: (e) => {
-              const ll = (e.target as L.Marker).getLatLng();
-              onMoveStartPin({ lat: ll.lat, lng: ll.lng });
-            },
-          }}
-          zIndexOffset={2000}
-        >
-          <Popup>Start (drag to adjust)</Popup>
-        </Marker>
-      )}
-      {endPin && (
-        <Marker
-          position={[endPin.lat, endPin.lng]}
-          icon={endPinIcon}
-          draggable
-          eventHandlers={{
-            dragend: (e) => {
-              const ll = (e.target as L.Marker).getLatLng();
-              onMoveEndPin({ lat: ll.lat, lng: ll.lng });
-            },
-          }}
-          zIndexOffset={2000}
-        >
-          <Popup>Destination (drag to adjust)</Popup>
-        </Marker>
-      )}
-
-      {routingMode && startPin && (
-        <>
-          <Circle
-            center={[startPin.lat, startPin.lng]}
-            radius={radiusMiles * 1609.34}
-            pathOptions={{ color: "#38bdf8", weight: 1.5, fillColor: "#38bdf8", fillOpacity: 0.08 }}
-          />
-          {startRadiusStops.map((s) => (
-            <CircleMarker
-              key={`start-rad-${s.id}`}
-              center={[s.lat, s.lng]}
-              radius={3}
-              pathOptions={{ color: "#10b981", fillColor: "#10b981", fillOpacity: 0.9, weight: 1 }}
-            >
-              <Popup>
-                <div className="text-xs">
-                  <div className="font-semibold">{s.name}</div>
-                  <div className="opacity-70">{s.miles.toFixed(2)} mi from start</div>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
-        </>
-      )}
-      {routingMode && endPin && (
-        <>
-          <Circle
-            center={[endPin.lat, endPin.lng]}
-            radius={radiusMiles * 1609.34}
-            pathOptions={{ color: "#38bdf8", weight: 1.5, fillColor: "#38bdf8", fillOpacity: 0.08 }}
-          />
-          {endRadiusStops.map((s) => (
-            <CircleMarker
-              key={`end-rad-${s.id}`}
-              center={[s.lat, s.lng]}
-              radius={3}
-              pathOptions={{ color: "#ef4444", fillColor: "#ef4444", fillOpacity: 0.9, weight: 1 }}
-            >
-              <Popup>
-                <div className="text-xs">
-                  <div className="font-semibold">{s.name}</div>
-                  <div className="opacity-70">{s.miles.toFixed(2)} mi from destination</div>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
-        </>
-      )}
 
       {ghosted ? (
           <>
@@ -582,8 +464,15 @@ export function TransitMap({
             >
               <Popup>
                 <div className="space-y-1">
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                    {isPassed ? "Passed stop" : "Upcoming stop"}
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                      {isPassed ? "Passed stop" : "Upcoming stop"}
+                    </div>
+                    <FavoriteStar
+                      active={isFavorite(s.name)}
+                      onClick={() => onToggleFavorite({ id: stopId, name: s.name, lat, lng })}
+                      label={s.name}
+                    />
                   </div>
                   <div className="text-sm font-semibold">{s.name}</div>
                   <div className={`text-xs ${typeof s.ts === "number" ? (isTimePassed ? "text-amber-500 font-medium" : "text-emerald-500 font-medium") : "opacity-70"}`} suppressHydrationWarning>

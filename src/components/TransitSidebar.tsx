@@ -1,12 +1,11 @@
-import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin, Menu, Compass, Footprints } from "lucide-react";
+import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin, Menu, Compass } from "lucide-react";
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
-import type { StopDeparture, LiveTransitAlert, TransferPlan } from "@/lib/transit.functions";
+import type { StopDeparture, LiveTransitAlert } from "@/lib/transit.functions";
 import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
 import { getLiveAlerts } from "@/lib/transit.functions";
-import { getLiveRailEta } from "../lib/transit.functions";
 import { RAIL_STATION_CODES } from "../lib/transit.functions";
 import {
   alongDistance,
@@ -16,6 +15,9 @@ import {
   nearestOnLines,
 } from "@/lib/geo-utils";
 import { findStopsByName } from "@/lib/stops-index";
+import { FavoriteStar } from "@/components/FavoriteStar";
+import { StarredBoards } from "@/components/StarredBoards";
+import type { FavoriteStop } from "@/hooks/use-favorites";
 
 interface Props {
   vehicles: Vehicle[];
@@ -39,36 +41,10 @@ interface Props {
   onClearSelectedStop: () => void;
   onPickStop: (s: { id: string; name: string; lat: number; lng: number }) => void;
   stopDepartures: StopDeparture[] | null;
-  routingMode: boolean;
-  startPin: { lat: number; lng: number } | null;
-  endPin: { lat: number; lng: number } | null;
-  tripPlan: {
-    startStop: { id: string; name: string; lat: number; lng: number } | null;
-    endStop: { id: string; name: string; lat: number; lng: number } | null;
-    startStops: Array<{ id: string; name: string; lat: number; lng: number; miles: number }>;
-    endStops: Array<{ id: string; name: string; lat: number; lng: number; miles: number }>;
-    connectingRoutes: string[];
-    options: Array<{
-      tripId: string;
-      vehicleId: string | null;
-      routeId: string;
-      direction: string;
-      vehicleType: "bus" | "rail" | "streetcar";
-      startStop: { id: string; name: string; lat: number; lng: number; miles: number };
-      endStop: { id: string; name: string; lat: number; lng: number; miles: number };
-      walkMinutes: number;
-      eta: number;
-      hasActiveVehicle: boolean;
-    }>;
-    transfers: TransferPlan[];
-    nextEta: { routeId: string; time: number } | null;
-  };
-  walkRadiusMiles: number;
-  onChangeWalkRadius: (m: number) => void;
-  selectedTripKey: string | null;
-  onSelectTripOption: (key: string) => void;
-  onToggleRoutingMode: () => void;
-  onClearTripPlan: () => void;
+  favoriteStops: FavoriteStop[];
+  isFavorite: (name: string) => boolean;
+  onToggleFavorite: (stop: FavoriteStop) => void;
+  onRemoveFavorite: (name: string) => void;
 }
 
 const DIRECTION_OPTIONS = ["Northbound", "Southbound", "Eastbound", "Westbound"] as const;
@@ -114,16 +90,10 @@ export function TransitSidebar({
   onClearSelectedStop,
   onPickStop,
   stopDepartures,
-  routingMode,
-  startPin,
-  endPin,
-  tripPlan,
-  walkRadiusMiles,
-  onChangeWalkRadius,
-  selectedTripKey,
-  onSelectTripOption,
-  onToggleRoutingMode,
-  onClearTripPlan,
+  favoriteStops,
+  isFavorite,
+  onToggleFavorite,
+  onRemoveFavorite,
 }: Props) {
   const fetchLiveAlerts = useServerFn(getLiveAlerts);
   const { data: liveAlertsData } = useQuery({
@@ -451,187 +421,13 @@ export function TransitSidebar({
           </div>
         </div>
 
-        {/* Plan a Trip */}
-        <div className="mb-4">
-          <button
-            onClick={onToggleRoutingMode}
-            className={`flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-              routingMode
-                ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-200 shadow-[0_0_12px_-2px_rgb(16,185,129)]"
-                : "border-white/10 bg-white/[0.04] text-foreground hover:border-primary/40 hover:bg-primary/10"
-            }`}
-          >
-            <MapPin className="h-3.5 w-3.5" />
-            {routingMode ? "Cancel Trip Planner" : "Plan a Trip"}
-          </button>
+        {/* Starred Boards (My Stations Dashboard) */}
+        <StarredBoards
+          favorites={favoriteStops}
+          onRemove={onRemoveFavorite}
+          onPickStop={(s) => onPickStop({ id: s.id, name: s.name, lat: s.lat, lng: s.lng })}
+        />
 
-          {routingMode && (
-            <div className="mt-2 space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs">
-              {/* Walking radius adjuster */}
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5">
-                <div className="flex items-center gap-1.5">
-                  <Footprints className="h-3.5 w-3.5 text-emerald-300" />
-                  <span className="text-[11px] font-semibold text-foreground/90">Walking Radius</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => onChangeWalkRadius(walkRadiusMiles - 0.1)}
-                    disabled={walkRadiusMiles <= 0.2}
-                    className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-white/[0.04] text-foreground transition hover:bg-white/[0.1] disabled:opacity-40"
-                    aria-label="Decrease radius"
-                  >
-                    −
-                  </button>
-                  <span className="min-w-[44px] text-center font-mono text-[12px] font-semibold text-emerald-200">
-                    {walkRadiusMiles.toFixed(1)} mi
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onChangeWalkRadius(walkRadiusMiles + 0.1)}
-                    disabled={walkRadiusMiles >= 3.0}
-                    className="flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-white/[0.04] text-foreground transition hover:bg-white/[0.1] disabled:opacity-40"
-                    aria-label="Increase radius"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-emerald-200/30" />
-                <span className="min-w-0 flex-1 truncate">
-                  {startPin
-                    ? tripPlan.startStops.length > 0
-                      ? `${tripPlan.startStops.length} stops within ${walkRadiusMiles.toFixed(1)} mi`
-                      : `No stops within ${walkRadiusMiles.toFixed(1)} mi`
-                    : "Click map to set start"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-red-500 ring-2 ring-red-200/30" />
-                <span className="min-w-0 flex-1 truncate">
-                  {endPin
-                    ? tripPlan.endStops.length > 0
-                      ? `${tripPlan.endStops.length} stops within ${walkRadiusMiles.toFixed(1)} mi`
-                      : `No stops within ${walkRadiusMiles.toFixed(1)} mi`
-                    : "Click map to set destination"}
-                </span>
-              </div>
-
-              {startPin && endPin && (
-                <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
-                  {tripPlan.options.length === 0 ? (
-                    tripPlan.transfers.length > 0 ? (
-                      <TransferItineraryList transfers={tripPlan.transfers} />
-                    ) : (
-                      <p className="text-[11px] text-amber-300/80">
-                        No direct or 1-transfer route found. Try widening your radius.
-                      </p>
-                    )
-                  ) : (
-                    <>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Best Trip Options ({tripPlan.options.length})
-                      </p>
-                      <ul className="-mr-2 max-h-72 space-y-2 overflow-y-auto pr-2">
-                        {tripPlan.options.slice(0, 8).map((o, idx) => {
-                          const TypeIcon =
-                            o.vehicleType === "rail"
-                              ? TrainFront
-                              : o.vehicleType === "streetcar"
-                              ? TramFront
-                              : Bus;
-                          const optKey = `${o.routeId}|${o.direction}`;
-                          const isSelected = selectedTripKey === optKey;
-                          const mins = Math.max(0, Math.round((o.eta * 1000 - Date.now()) / 60000));
-                          const routeLabel =
-                            o.vehicleType === "rail"
-                              ? "Light Rail"
-                              : o.vehicleType === "streetcar"
-                              ? "Streetcar"
-                              : `Route ${o.routeId}`;
-                          return (
-                            <li key={`${optKey}-${idx}`}>
-                              <button
-                                type="button"
-                                onClick={() => onSelectTripOption(optKey)}
-                                className={`w-full rounded-lg border p-2 text-left transition ${
-                                  isSelected
-                                    ? "border-primary/60 bg-primary/15 shadow-[0_0_12px_-2px_rgba(99,102,241,0.6)]"
-                                    : "border-white/10 bg-white/[0.04] hover:border-primary/40 hover:bg-white/[0.07]"
-                                }`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <TypeIcon className="h-3.5 w-3.5 text-primary" />
-                                  <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-foreground">
-                                    {routeLabel} - {o.direction}
-                                  </span>
-                                  {o.hasActiveVehicle ? (
-                                    <span className="shrink-0 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200">
-                                      {mins} min
-                                    </span>
-                                  ) : (
-                                    <span className="shrink-0 rounded-md bg-slate-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
-                                      Scheduled
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="mt-1 flex items-start gap-1 text-[11px] text-foreground/90">
-                                  <Footprints className="mt-0.5 h-3 w-3 shrink-0 text-emerald-300" />
-                                  <span>
-                                    Walk {o.walkMinutes} min ({o.startStop.miles.toFixed(2)} mi) to{" "}
-                                    <span className="font-semibold">{o.startStop.name}</span>
-                                  </span>
-                                </p>
-                                <p className="mt-0.5 flex items-start gap-1 text-[11px] text-muted-foreground">
-                                  <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-red-300" />
-                                  <span>
-                                    Arrive near <span className="font-semibold text-foreground">{o.endStop.name}</span>
-                                  </span>
-                                </p>
-                                {o.hasActiveVehicle ? (
-                                  <p
-                                    className="mt-1 text-[10px] text-emerald-200/90"
-                                    suppressHydrationWarning
-                                  >
-                                    Next vehicle at{" "}
-                                    {new Date(o.eta * 1000).toLocaleTimeString([], {
-                                      hour: "numeric",
-                                      minute: "2-digit",
-                                    })}
-                                  </p>
-                                ) : (
-                                  <p className="mt-1 text-[10px] text-slate-300/80">
-                                    {routeLabel} serves this trip. No live vehicles currently in range—refer to standard schedule.
-                                  </p>
-                                )}
-                                {isSelected && (
-                                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                                    Focus mode active — tap again to clear
-                                  </p>
-                                )}
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {(startPin || endPin) && (
-                <button
-                  onClick={onClearTripPlan}
-                  className="mt-1 flex w-full items-center justify-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-white/[0.08] hover:text-foreground"
-                >
-                  <X className="h-3 w-3" /> Clear Route
-                </button>
-              )}
-            </div>
-          )}
-        </div>
 
 
       {/* Search (hidden when a stop is selected — Back to All Vehicles restores it) */}
@@ -656,17 +452,26 @@ export function TransitSidebar({
           </div>
           <ul className="-mr-2 max-h-44 space-y-1 overflow-y-auto pr-2">
             {matchingStops.map((s) => (
-              <li key={`${s.id}-${s.name}`}>
+              <li
+                key={`${s.id}-${s.name}`}
+                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] transition hover:border-primary/40 hover:bg-primary/10"
+              >
                 <button
                   type="button"
                   onClick={() => onPickStop(s)}
-                  className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-left text-xs transition hover:border-primary/40 hover:bg-primary/10"
+                  className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-xs"
                   title="Open departure board"
                 >
                   <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
                   <span className="min-w-0 flex-1 truncate">{s.name}</span>
                   <span className="shrink-0 text-[10px] text-muted-foreground">Departures →</span>
                 </button>
+                <FavoriteStar
+                  active={isFavorite(s.name)}
+                  onClick={() => onToggleFavorite({ id: s.id, name: s.name, lat: s.lat, lng: s.lng })}
+                  label={s.name}
+                  className="mr-1"
+                />
               </li>
             ))}
           </ul>
@@ -708,11 +513,11 @@ export function TransitSidebar({
                 </li>
               )}
               {upcomingStops.map((s, idx) => (
-                <li key={`${s.sid}-${idx}`}>
+                <li key={`${s.sid}-${idx}`} className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => onSelectStop(s.lat, s.lng)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition hover:bg-white/[0.06] focus:bg-white/[0.06] focus:outline-none"
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition hover:bg-white/[0.06] focus:bg-white/[0.06] focus:outline-none"
                     title="Center map on this stop"
                   >
                     <MapPin className="h-3 w-3 shrink-0 text-primary" />
@@ -726,6 +531,11 @@ export function TransitSidebar({
                         : "No live ETA"}
                     </span>
                   </button>
+                  <FavoriteStar
+                    active={isFavorite(s.name)}
+                    onClick={() => onToggleFavorite({ id: s.sid, name: s.name, lat: s.lat, lng: s.lng })}
+                    label={s.name}
+                  />
                 </li>
               ))}
             </ul>
@@ -815,9 +625,24 @@ export function TransitSidebar({
               {last ? last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "..."}
             </span>
           </div>
-          <div className="mb-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Departures</div>
-            <div className="truncate text-sm font-semibold">{selectedStop.name}</div>
+          <div className="mb-2 flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Departures</div>
+              <div className="truncate text-sm font-semibold">{selectedStop.name}</div>
+            </div>
+            <FavoriteStar
+              active={isFavorite(selectedStop.name)}
+              onClick={() =>
+                onToggleFavorite({
+                  id: selectedStop.id,
+                  name: selectedStop.name,
+                  lat: selectedStop.lat,
+                  lng: selectedStop.lng,
+                })
+              }
+              label={selectedStop.name}
+              size={18}
+            />
           </div>
           <div className="-mr-2 mb-4 max-h-[28%] overflow-y-auto pr-2">
             {departures.length === 0 && (
@@ -968,143 +793,3 @@ export function TransitSidebar({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Multi-Step Transfer Itinerary — vertical timeline for 1-transfer trip plans
-// ---------------------------------------------------------------------------
-function LegIcon({ type }: { type: "bus" | "rail" | "streetcar" }) {
-  const Cmp = type === "rail" ? TrainFront : type === "streetcar" ? TramFront : Bus;
-  return <Cmp className="h-3.5 w-3.5 text-primary" />;
-}
-
-function formatMinsFromNow(unixSec: number): string {
-  const diff = Math.round((unixSec * 1000 - Date.now()) / 60000);
-  if (diff <= 0) return "now";
-  if (diff < 60) return `${diff} min`;
-  return `${Math.floor(diff / 60)}h ${diff % 60}m`;
-}
-
-function TransferItineraryList({ transfers }: { transfers: TransferPlan[] }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 15000);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <div className="space-y-2">
-      <p className="text-[10px] uppercase tracking-wider text-amber-200/90">
-        No direct route — {transfers.length} transfer option{transfers.length === 1 ? "" : "s"}
-      </p>
-      <ul className="-mr-2 max-h-[420px] space-y-3 overflow-y-auto pr-2">
-        {transfers.map((plan) => {
-          const leg1RouteLabel =
-            plan.leg1.vehicleType === "rail" ? "Light Rail"
-            : plan.leg1.vehicleType === "streetcar" ? "Streetcar"
-            : `Route ${plan.leg1.routeId}`;
-          const leg2RouteLabel =
-            plan.leg2.vehicleType === "rail" ? "Light Rail"
-            : plan.leg2.vehicleType === "streetcar" ? "Streetcar"
-            : `Route ${plan.leg2.routeId}`;
-          const leaveIn = Math.max(0, Math.round((plan.leg1.boardEta * 1000 - now) / 60000));
-          const leaveLabel = plan.leg1.hasActiveVehicle
-            ? (leaveIn <= 0 ? "Departing now" : `Leave in ${leaveIn} min`)
-            : "Scheduled";
-          return (
-            <li
-              key={plan.key}
-              className="rounded-xl border border-white/10 bg-white/[0.04] p-3 shadow-inner"
-            >
-              {/* Header */}
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
-                  <Compass className="h-3.5 w-3.5 text-primary" />
-                  <span>1 transfer · ~{plan.totalMinutes} min</span>
-                </div>
-                <span
-                  className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
-                    plan.leg1.hasActiveVehicle
-                      ? "bg-emerald-500/15 text-emerald-200"
-                      : "bg-slate-500/20 text-slate-300"
-                  }`}
-                >
-                  {leaveLabel}
-                </span>
-              </div>
-
-              {/* Vertical timeline */}
-              <ol className="relative ml-1 space-y-2.5 border-l border-dashed border-white/20 pl-4">
-                {/* Step 1 – Board */}
-                <li className="relative">
-                  <span className="absolute -left-[21px] top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-emerald-400 bg-background">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  </span>
-                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
-                    <LegIcon type={plan.leg1.vehicleType} />
-                    Board {leg1RouteLabel} at {plan.leg1.boardStopName}
-                  </p>
-                  <p className="text-[10px] text-emerald-200/90" suppressHydrationWarning>
-                    {plan.leg1.hasActiveVehicle
-                      ? `Arrives ~${formatMinsFromNow(plan.leg1.boardEta)} · ${new Date(plan.leg1.boardEta * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
-                      : "Scheduled service"}
-                  </p>
-                </li>
-
-                {/* Step 2 – Ride to transfer */}
-                <li className="relative">
-                  <span className="absolute -left-[19px] top-1 h-2 w-2 rounded-full bg-white/40" />
-                  <p className="text-[11px] text-foreground/90">
-                    Ride to <span className="font-semibold text-foreground">{plan.transferStopName}</span> and get off
-                  </p>
-                  {plan.leg1.alightEta > 0 && (
-                    <p className="text-[10px] text-muted-foreground" suppressHydrationWarning>
-                      Arrive ~{new Date(plan.leg1.alightEta * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                    </p>
-                  )}
-                </li>
-
-                {/* Step 3 – Transfer / continuation */}
-                <li className="relative">
-                  <span className={`absolute -left-[21px] top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 bg-background ${
-                    plan.sameRouteKind === "continuation" ? "border-sky-400" : "border-amber-400"
-                  }`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${
-                      plan.sameRouteKind === "continuation" ? "bg-sky-400" : "bg-amber-400"
-                    }`} />
-                  </span>
-                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
-                    <LegIcon type={plan.leg2.vehicleType} />
-                    {plan.sameRouteKind === "continuation"
-                      ? `Stay on board as the vehicle turns ${plan.leg2.direction ?? "toward your destination"}`
-                      : plan.sameRouteKind === "reversal"
-                        ? `Exit the train, cross to the opposite platform, and board the ${plan.leg2.direction ?? leg2RouteLabel} train`
-                        : `Transfer to ${leg2RouteLabel} at the same platform`}
-                  </p>
-                  {plan.sameRouteKind !== "continuation" && plan.leg2.boardEta > 0 && (
-                    <p className="text-[10px] text-amber-200/90" suppressHydrationWarning>
-                      Next departure ~{new Date(plan.leg2.boardEta * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                    </p>
-                  )}
-                </li>
-
-
-                {/* Step 4 – Arrive */}
-                <li className="relative">
-                  <span className="absolute -left-[21px] top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-red-400 bg-background">
-                    <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                  </span>
-                  <p className="text-[11px] font-semibold text-foreground">
-                    Arrive at {plan.leg2.alightStopName}
-                  </p>
-                  {plan.leg2.alightEta > 0 && (
-                    <p className="text-[10px] text-red-200/90" suppressHydrationWarning>
-                      ETA ~{new Date(plan.leg2.alightEta * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                    </p>
-                  )}
-                </li>
-              </ol>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}

@@ -7,40 +7,25 @@ const TransitMap = lazy(() =>
 );
 import { TransitSidebar } from "@/components/TransitSidebar";
 import { mockAlerts, type Vehicle, type VehicleType } from "@/lib/mock-transit";
-import { getLiveVehicles, getTripUpdates, getStopDepartures, getTripPlanMatches, getTripPlanTransfers, type TransferPlan } from "@/lib/transit.functions";
+import {
+  getLiveVehicles,
+  getTripUpdates,
+  getStopDepartures,
+} from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
-import { findStopIdsByQuery, findStopIdsByExactName, findNearestStop, findStopsWithinRadius, type PickableStop, type PickableStopWithDistance } from "@/lib/stops-index";
-
-export type Pin = { lat: number; lng: number };
-export interface TripOption {
-  tripId: string;
-  vehicleId: string | null;
-  routeId: string;
-  direction: string;
-  vehicleType: "bus" | "rail" | "streetcar";
-  startStop: PickableStopWithDistance;
-  endStop: PickableStopWithDistance;
-  walkMinutes: number;
-  eta: number; // unix seconds
-  hasActiveVehicle: boolean;
-}
-export interface TripPlan {
-  startStop: PickableStop | null;
-  endStop: PickableStop | null;
-  startStops: PickableStopWithDistance[];
-  endStops: PickableStopWithDistance[];
-  connectingRoutes: string[];
-  options: TripOption[];
-  transfers: TransferPlan[];
-  nextEta: { routeId: string; time: number } | null;
-}
+import { findStopIdsByQuery, findStopIdsByExactName } from "@/lib/stops-index";
+import { useFavorites } from "@/hooks/use-favorites";
 
 export const Route = createFileRoute("/")({
   component: Index,
   head: () => ({
     meta: [
       { title: "MetroPulse Tempe — Live Transit Tracking" },
-      { name: "description", content: "Real-time tracking of buses, light rail, and the streetcar across Tempe, Arizona." },
+      {
+        name: "description",
+        content:
+          "Real-time tracking of buses, light rail, and the streetcar across Tempe, Arizona.",
+      },
     ],
   }),
 });
@@ -50,7 +35,6 @@ function Index() {
   const fetchRouteGeometry = useServerFn(getRouteGeometry);
   const fetchTripUpdates = useServerFn(getTripUpdates);
   const fetchStopDepartures = useServerFn(getStopDepartures);
-  const fetchTripPlanMatches = useServerFn(getTripPlanMatches);
   const { data } = useQuery({
     queryKey: ["live-vehicles"],
     queryFn: () => fetchVehicles(),
@@ -75,179 +59,26 @@ function Index() {
   const [selectedDirections, setSelectedDirections] = useState<string[]>([]);
   const [active, setActive] = useState<Vehicle | null>(null);
   const [isRouteViewActive, setIsRouteViewActive] = useState(false);
-  const [focusedStop, setFocusedStop] = useState<{ lat: number; lng: number; key: number } | null>(null);
-  const [selectedStop, setSelectedStop] = useState<{ id: string; name: string; lat: number; lng: number } | null>(null);
-  const [routingMode, setRoutingMode] = useState(false);
-  const [startPin, setStartPin] = useState<Pin | null>(null);
-  const [endPin, setEndPin] = useState<Pin | null>(null);
-  const [walkRadiusMiles, setWalkRadiusMiles] = useState(1);
-  const [selectedTripKey, setSelectedTripKey] = useState<string | null>(null);
+  const [focusedStop, setFocusedStop] = useState<{
+    lat: number;
+    lng: number;
+    key: number;
+  } | null>(null);
+  const [selectedStop, setSelectedStop] = useState<{
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const WALK_RADIUS_MILES = walkRadiusMiles;
-  const WALK_MIN_PER_MILE = 20; // ~3 mph
-
-  // All stops within 1mi of each pin (covers bus + rail + streetcar platforms).
-  const startStops = useMemo<PickableStopWithDistance[]>(
-    () => (startPin ? findStopsWithinRadius(startPin.lat, startPin.lng, WALK_RADIUS_MILES) : []),
-    [startPin, WALK_RADIUS_MILES],
-  );
-  const endStops = useMemo<PickableStopWithDistance[]>(
-    () => (endPin ? findStopsWithinRadius(endPin.lat, endPin.lng, WALK_RADIUS_MILES) : []),
-    [endPin, WALK_RADIUS_MILES],
-  );
-  const startStop = useMemo(() => (startPin ? findNearestStop(startPin.lat, startPin.lng) : null), [startPin]);
-  const endStop = useMemo(() => (endPin ? findNearestStop(endPin.lat, endPin.lng) : null), [endPin]);
-
-  const startStopIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const s of startStops) {
-      for (const v of findStopIdsByExactName(s.name)) ids.add(v);
-      ids.add(s.id);
-      ids.add(s.id.replace(/^0+/, ""));
-    }
-    return Array.from(ids);
-  }, [startStops]);
-  const endStopIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const s of endStops) {
-      for (const v of findStopIdsByExactName(s.name)) ids.add(v);
-      ids.add(s.id);
-      ids.add(s.id.replace(/^0+/, ""));
-    }
-    return Array.from(ids);
-  }, [endStops]);
-
-  const activeTripIds = useMemo(() => vehicles.map((v) => v.id), [vehicles]);
-  const { data: tripMatches } = useQuery({
-    queryKey: ["plan-trip-matches", startStopIds.join(","), endStopIds.join(","), activeTripIds.join(",")],
-    queryFn: () =>
-      fetchTripPlanMatches({
-        data: { startStopIds, endStopIds, activeTripIds },
-      }),
-    enabled: startStopIds.length > 0 && endStopIds.length > 0,
-    refetchInterval: 30000,
-    refetchIntervalInBackground: true,
-  });
-
-  const fetchTripPlanTransfers = useServerFn(getTripPlanTransfers);
-  const directOptionsCount = (tripMatches?.matches?.length ?? 0);
-  const { data: transferData } = useQuery({
-    queryKey: ["plan-trip-transfers", startStopIds.join(","), endStopIds.join(","), activeTripIds.join(",")],
-    queryFn: () => fetchTripPlanTransfers({ data: { startStopIds, endStopIds, activeTripIds } }),
-    enabled: startStopIds.length > 0 && endStopIds.length > 0 && directOptionsCount === 0,
-    refetchInterval: 30000,
-    refetchIntervalInBackground: true,
-  });
-
-  const tripPlan: TripPlan = useMemo(() => {
-    const empty: TripPlan = {
-      startStop,
-      endStop,
-      startStops,
-      endStops,
-      connectingRoutes: [],
-      options: [],
-      transfers: transferData?.transfers ?? [],
-      nextEta: null,
-    };
-    if (!startStop || !endStop || !tripMatches?.matches) return empty;
-
-    // Map every exact-name stop_id / stop_code variant back to the nearest stop record in each pin radius.
-    const stopRecordById = (pool: PickableStopWithDistance[]) => {
-      const map = new Map<string, PickableStopWithDistance>();
-      const norm = (s: string) => s.replace(/^0+/, "");
-      for (const s of pool) {
-        map.set(s.id, s);
-        map.set(norm(s.id), s);
-        for (const id of findStopIdsByExactName(s.name)) {
-          map.set(id, s);
-          map.set(norm(id), s);
-        }
-      }
-      return map;
-    };
-    const startIdMap = stopRecordById(startStops);
-    const endIdMap = stopRecordById(endStops);
-
-    // Helper: lookup active vehicle context by trip ID, vehicle ID, then route fallback.
-    const vByTripOrVehicle = new Map<string, Vehicle>();
-    const vByRoute = new Map<string, Vehicle>();
-    for (const v of vehicles) {
-      vByTripOrVehicle.set(v.id, v);
-      const rid = v.route_id.split(" · ")[0].trim();
-      if (!vByRoute.has(rid)) vByRoute.set(rid, v);
-    }
-
-    const norm = (s: string) => s.replace(/^0+/, "");
-    const best = new Map<string, TripOption>();
-
-    for (const match of tripMatches.matches) {
-      const startRec = startIdMap.get(match.startStopId) || startIdMap.get(norm(match.startStopId));
-      if (!startRec) continue;
-      const endRec = endIdMap.get(match.endStopId) || endIdMap.get(norm(match.endStopId));
-      if (!endRec) continue;
-
-      const veh =
-        vByTripOrVehicle.get(match.tripId) ||
-        (match.vehicleId ? vByTripOrVehicle.get(match.vehicleId) : undefined) ||
-        vByRoute.get(match.routeId);
-      const direction = veh?.direction ?? "—";
-      const vehicleType = veh?.vehicle_type ?? "bus";
-      const walkMinutes = Math.max(1, Math.round(startRec.miles * WALK_MIN_PER_MILE));
-
-      const key = `${match.tripId}|${match.vehicleId ?? ""}|${match.startStopId}|${match.endStopId}`;
-      const existing = best.get(key);
-      if (!existing || match.eta < existing.eta) {
-        best.set(key, {
-          tripId: match.tripId,
-          vehicleId: match.vehicleId,
-          routeId: match.routeId,
-          direction,
-          vehicleType,
-          startStop: startRec,
-          endStop: endRec,
-          walkMinutes,
-          eta: match.eta,
-          hasActiveVehicle: match.hasActiveVehicle,
-        });
-      }
-    }
-
-    const allOptions = Array.from(best.values()).sort((a, b) => {
-      // Prefer active vehicles, then by ETA
-      if (a.hasActiveVehicle !== b.hasActiveVehicle) return a.hasActiveVehicle ? -1 : 1;
-      return a.eta - b.eta;
-    });
-    // Dedupe by route+direction so each unique route surfaces once (active preferred).
-    const byRouteDir = new Map<string, TripOption>();
-    for (const o of allOptions) {
-      const k = `${o.routeId}|${o.direction}`;
-      if (!byRouteDir.has(k)) byRouteDir.set(k, o);
-    }
-    const options = Array.from(byRouteDir.values());
-    const seenRoutes = new Set<string>();
-    const connectingRoutes: string[] = [];
-    for (const o of options) {
-      if (!seenRoutes.has(o.routeId)) {
-        seenRoutes.add(o.routeId);
-        connectingRoutes.push(o.routeId);
-      }
-    }
-    const firstActive = options.find((o) => o.hasActiveVehicle);
-    const nextEta = firstActive ? { routeId: firstActive.routeId, time: firstActive.eta } : null;
-
-    return { startStop, endStop, startStops, endStops, connectingRoutes, options, transfers: transferData?.transfers ?? [], nextEta };
-  }, [startStop, endStop, startStops, endStops, tripMatches, vehicles, transferData]);
-
+  const favorites = useFavorites();
 
   const { data: routeGeo } = useQuery({
     queryKey: ["route-geo", active?.route_id],
     queryFn: () => {
-      // Split "72 · Label" and only take the "72" part to send to the database
       const cleanRouteId = active!.route_id.split(" · ")[0].trim();
-      
       return fetchRouteGeometry({ data: { routeId: cleanRouteId } });
     },
     enabled: !!active?.route_id,
@@ -261,7 +92,6 @@ function Index() {
     refetchInterval: 15000,
   });
 
-  // Departure-board feed: every future arrival at the selected stop across ALL routes/vehicles.
   const stopDepartureIds = useMemo(() => {
     if (!selectedStop) return [] as string[];
     const ids = findStopIdsByExactName(selectedStop.name);
@@ -279,37 +109,29 @@ function Index() {
     refetchInterval: 15000,
   });
 
-  // Bridge plain-text stop names -> numeric stop IDs using the master stops.json database.
   const matchedStopIds = useMemo(() => findStopIdsByQuery(search), [search]);
-
-  const selectedOption = useMemo(
-    () => (selectedTripKey ? tripPlan.options.find((o) => `${o.routeId}|${o.direction}` === selectedTripKey) ?? null : null),
-    [selectedTripKey, tripPlan.options],
-  );
 
   const visibleVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
     const dirs = selectedDirections.map((d) => d.toLowerCase());
     const etas = tripUpdates?.etas ?? null;
     return vehicles.filter((v) => {
-      // Focus Mode: when a trip option is selected, show only matching route vehicles.
-      if (selectedOption) {
-        const cleanRid = v.route_id.split(" · ")[0].trim();
-        if (cleanRid !== selectedOption.routeId) return false;
-      }
       if (!filters[v.vehicle_type]) return false;
-      if (dirs.length > 0 && !dirs.some((d) => v.direction.toLowerCase().includes(d))) return false;
+      if (dirs.length > 0 && !dirs.some((d) => v.direction.toLowerCase().includes(d)))
+        return false;
       if (q === "") return true;
-      if (v.route_id.toLowerCase().includes(q) || v.direction.toLowerCase().includes(q)) return true;
+      if (v.route_id.toLowerCase().includes(q) || v.direction.toLowerCase().includes(q))
+        return true;
       if (matchedStopIds.size > 0 && etas && v.id === active?.id) {
         for (const sid of Object.keys(etas)) {
           const clean = String(sid).trim();
-          if (matchedStopIds.has(clean) || matchedStopIds.has(clean.replace(/^0+/, ""))) return true;
+          if (matchedStopIds.has(clean) || matchedStopIds.has(clean.replace(/^0+/, "")))
+            return true;
         }
       }
       return false;
     });
-  }, [vehicles, filters, search, selectedDirections, matchedStopIds, tripUpdates, active, selectedOption]);
+  }, [vehicles, filters, search, selectedDirections, matchedStopIds, tripUpdates, active]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
@@ -341,19 +163,8 @@ function Index() {
               setSelectedStop(null);
             }}
             onShowRoute={() => setIsRouteViewActive(true)}
-            routingMode={routingMode}
-            startPin={startPin}
-            endPin={endPin}
-            onDropPin={(latlng: Pin) => {
-              if (!startPin) setStartPin(latlng);
-              else if (!endPin) setEndPin(latlng);
-              else setStartPin(latlng); // cycle: replace start once both are set
-            }}
-            onMoveStartPin={(p: Pin) => setStartPin(p)}
-            onMoveEndPin={(p: Pin) => setEndPin(p)}
-            startRadiusStops={startStops}
-            endRadiusStops={endStops}
-            radiusMiles={WALK_RADIUS_MILES}
+            isFavorite={favorites.isFavorite}
+            onToggleFavorite={favorites.toggle}
           />
         </Suspense>
       )}
@@ -392,30 +203,10 @@ function Index() {
           )
         }
         stopDepartures={stopDeparturesData?.departures ?? null}
-        routingMode={routingMode}
-        startPin={startPin}
-        endPin={endPin}
-        tripPlan={tripPlan}
-        walkRadiusMiles={walkRadiusMiles}
-        onChangeWalkRadius={(m) => setWalkRadiusMiles(Math.max(0.2, Math.min(3.0, Math.round(m * 10) / 10)))}
-        selectedTripKey={selectedTripKey}
-        onSelectTripOption={(key) => setSelectedTripKey((prev) => (prev === key ? null : key))}
-        onToggleRoutingMode={() => {
-          setRoutingMode((m) => {
-            const next = !m;
-            if (!next) {
-              setStartPin(null);
-              setEndPin(null);
-              setSelectedTripKey(null);
-            }
-            return next;
-          });
-        }}
-        onClearTripPlan={() => {
-          setStartPin(null);
-          setEndPin(null);
-          setSelectedTripKey(null);
-        }}
+        favoriteStops={favorites.favorites}
+        isFavorite={favorites.isFavorite}
+        onToggleFavorite={favorites.toggle}
+        onRemoveFavorite={favorites.remove}
       />
       {feedError && (
         <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive backdrop-blur">
@@ -425,4 +216,3 @@ function Index() {
     </main>
   );
 }
-
