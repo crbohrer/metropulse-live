@@ -98,15 +98,8 @@ interface Props {
   onClearSelection: () => void;
   onSelectVehicle: (v: Vehicle) => void;
   onShowRoute: () => void;
-  routingMode: boolean;
-  startPin: { lat: number; lng: number } | null;
-  endPin: { lat: number; lng: number } | null;
-  onDropPin: (p: { lat: number; lng: number }) => void;
-  onMoveStartPin: (p: { lat: number; lng: number }) => void;
-  onMoveEndPin: (p: { lat: number; lng: number }) => void;
-  startRadiusStops?: { id: string; name: string; lat: number; lng: number; miles: number }[];
-  endRadiusStops?: { id: string; name: string; lat: number; lng: number; miles: number }[];
-  radiusMiles?: number;
+  isFavorite: (name: string) => boolean;
+  onToggleFavorite: (stop: { id: string; name: string; lat: number; lng: number }) => void;
 }
 
 export function TransitMap({
@@ -122,15 +115,8 @@ export function TransitMap({
   onClearSelection,
   onSelectVehicle,
   onShowRoute,
-  routingMode,
-  startPin,
-  endPin,
-  onDropPin,
-  onMoveStartPin,
-  onMoveEndPin,
-  startRadiusStops = [],
-  endRadiusStops = [],
-  radiusMiles = 1,
+  isFavorite,
+  onToggleFavorite,
 }: Props) {
   // Hide all other vehicles when in route view.
   const displayedVehicles = isRouteViewActive && activeVehicle
