@@ -1,6 +1,7 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, CircleMarker, Circle, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, CircleMarker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, useMemo } from "react";
+import { FavoriteStar } from "@/components/FavoriteStar";
 import type { Vehicle, VehicleType } from "@/lib/mock-transit";
 import type { GeoJSON as RouteGeoJSON, GeoJSONFeature } from "@/lib/route-shapes.functions";
 import { RAIL_STATION_CODES } from "@/lib/transit.functions";
