@@ -1,12 +1,11 @@
-import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin, Menu, Compass, Footprints } from "lucide-react";
+import { Bus, TrainFront, TramFront, Search, AlertTriangle, Info, AlertOctagon, Radio, X, MapPin, Menu, Compass } from "lucide-react";
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { Vehicle, VehicleType, TransitAlert } from "@/lib/transit-types";
-import type { StopDeparture, LiveTransitAlert, TransferPlan } from "@/lib/transit.functions";
+import type { StopDeparture, LiveTransitAlert } from "@/lib/transit.functions";
 import type { GeoJSON as RouteGeoJSON } from "@/lib/route-shapes.functions";
 import { getLiveAlerts } from "@/lib/transit.functions";
-import { getLiveRailEta } from "../lib/transit.functions";
 import { RAIL_STATION_CODES } from "../lib/transit.functions";
 import {
   alongDistance,
@@ -16,6 +15,9 @@ import {
   nearestOnLines,
 } from "@/lib/geo-utils";
 import { findStopsByName } from "@/lib/stops-index";
+import { FavoriteStar } from "@/components/FavoriteStar";
+import { StarredBoards } from "@/components/StarredBoards";
+import type { FavoriteStop } from "@/hooks/use-favorites";
 
 interface Props {
   vehicles: Vehicle[];
