@@ -464,8 +464,15 @@ export function TransitMap({
             >
               <Popup>
                 <div className="space-y-1">
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                    {isPassed ? "Passed stop" : "Upcoming stop"}
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                      {isPassed ? "Passed stop" : "Upcoming stop"}
+                    </div>
+                    <FavoriteStar
+                      active={isFavorite(s.name)}
+                      onClick={() => onToggleFavorite({ id: stopId, name: s.name, lat, lng })}
+                      label={s.name}
+                    />
                   </div>
                   <div className="text-sm font-semibold">{s.name}</div>
                   <div className={`text-xs ${typeof s.ts === "number" ? (isTimePassed ? "text-amber-500 font-medium" : "text-emerald-500 font-medium") : "opacity-70"}`} suppressHydrationWarning>
