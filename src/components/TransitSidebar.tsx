@@ -452,17 +452,26 @@ export function TransitSidebar({
           </div>
           <ul className="-mr-2 max-h-44 space-y-1 overflow-y-auto pr-2">
             {matchingStops.map((s) => (
-              <li key={`${s.id}-${s.name}`}>
+              <li
+                key={`${s.id}-${s.name}`}
+                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] transition hover:border-primary/40 hover:bg-primary/10"
+              >
                 <button
                   type="button"
                   onClick={() => onPickStop(s)}
-                  className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-left text-xs transition hover:border-primary/40 hover:bg-primary/10"
+                  className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-xs"
                   title="Open departure board"
                 >
                   <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
                   <span className="min-w-0 flex-1 truncate">{s.name}</span>
                   <span className="shrink-0 text-[10px] text-muted-foreground">Departures →</span>
                 </button>
+                <FavoriteStar
+                  active={isFavorite(s.name)}
+                  onClick={() => onToggleFavorite({ id: s.id, name: s.name, lat: s.lat, lng: s.lng })}
+                  label={s.name}
+                  className="mr-1"
+                />
               </li>
             ))}
           </ul>
