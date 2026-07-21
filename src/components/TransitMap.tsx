@@ -56,35 +56,15 @@ function FlyToActive({ vehicle }: { vehicle: Vehicle | null }) {
 }
 
 function MapClickHandler({
-  routingMode,
-  onDropPin,
   onBackgroundClick,
 }: {
-  routingMode: boolean;
-  onDropPin: (p: { lat: number; lng: number }) => void;
   onBackgroundClick: () => void;
 }) {
   useMapEvents({
-    click: (e) => {
-      if (routingMode) onDropPin({ lat: e.latlng.lat, lng: e.latlng.lng });
-      else onBackgroundClick();
-    },
+    click: () => onBackgroundClick(),
   });
   return null;
 }
-
-const startPinIcon = L.divIcon({
-  className: "",
-  html: `<div style="width:22px;height:22px;border-radius:50%;background:#10b981;border:3px solid #ffffff;box-shadow:0 0 0 2px #10b981, 0 2px 8px rgba(0,0,0,0.5);"></div>`,
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-});
-const endPinIcon = L.divIcon({
-  className: "",
-  html: `<div style="width:22px;height:22px;border-radius:50%;background:#ef4444;border:3px solid #ffffff;box-shadow:0 0 0 2px #ef4444, 0 2px 8px rgba(0,0,0,0.5);"></div>`,
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-});
 
 function FlyToStop({ stop }: { stop: { lat: number; lng: number } | null }) {
   const map = useMap();
