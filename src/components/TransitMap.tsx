@@ -335,95 +335,10 @@ export function TransitMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
-      <MapClickHandler
-        routingMode={routingMode}
-        onDropPin={onDropPin}
-        onBackgroundClick={onClearSelection}
-      />
+      <MapClickHandler onBackgroundClick={onClearSelection} />
       <FlyToActive vehicle={activeVehicle} />
       <FlyToStop stop={focusedStop} />
 
-      {startPin && (
-        <Marker
-          position={[startPin.lat, startPin.lng]}
-          icon={startPinIcon}
-          draggable
-          eventHandlers={{
-            dragend: (e) => {
-              const ll = (e.target as L.Marker).getLatLng();
-              onMoveStartPin({ lat: ll.lat, lng: ll.lng });
-            },
-          }}
-          zIndexOffset={2000}
-        >
-          <Popup>Start (drag to adjust)</Popup>
-        </Marker>
-      )}
-      {endPin && (
-        <Marker
-          position={[endPin.lat, endPin.lng]}
-          icon={endPinIcon}
-          draggable
-          eventHandlers={{
-            dragend: (e) => {
-              const ll = (e.target as L.Marker).getLatLng();
-              onMoveEndPin({ lat: ll.lat, lng: ll.lng });
-            },
-          }}
-          zIndexOffset={2000}
-        >
-          <Popup>Destination (drag to adjust)</Popup>
-        </Marker>
-      )}
-
-      {routingMode && startPin && (
-        <>
-          <Circle
-            center={[startPin.lat, startPin.lng]}
-            radius={radiusMiles * 1609.34}
-            pathOptions={{ color: "#38bdf8", weight: 1.5, fillColor: "#38bdf8", fillOpacity: 0.08 }}
-          />
-          {startRadiusStops.map((s) => (
-            <CircleMarker
-              key={`start-rad-${s.id}`}
-              center={[s.lat, s.lng]}
-              radius={3}
-              pathOptions={{ color: "#10b981", fillColor: "#10b981", fillOpacity: 0.9, weight: 1 }}
-            >
-              <Popup>
-                <div className="text-xs">
-                  <div className="font-semibold">{s.name}</div>
-                  <div className="opacity-70">{s.miles.toFixed(2)} mi from start</div>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
-        </>
-      )}
-      {routingMode && endPin && (
-        <>
-          <Circle
-            center={[endPin.lat, endPin.lng]}
-            radius={radiusMiles * 1609.34}
-            pathOptions={{ color: "#38bdf8", weight: 1.5, fillColor: "#38bdf8", fillOpacity: 0.08 }}
-          />
-          {endRadiusStops.map((s) => (
-            <CircleMarker
-              key={`end-rad-${s.id}`}
-              center={[s.lat, s.lng]}
-              radius={3}
-              pathOptions={{ color: "#ef4444", fillColor: "#ef4444", fillOpacity: 0.9, weight: 1 }}
-            >
-              <Popup>
-                <div className="text-xs">
-                  <div className="font-semibold">{s.name}</div>
-                  <div className="opacity-70">{s.miles.toFixed(2)} mi from destination</div>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
-        </>
-      )}
 
       {ghosted ? (
           <>
