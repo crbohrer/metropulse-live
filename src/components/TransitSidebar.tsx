@@ -105,6 +105,7 @@ export function TransitSidebar({
   });
   const liveAlerts: LiveTransitAlert[] = liveAlertsData ?? [];
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [, forceUpdate] = useState({});
   const [railEtas, setRailEtas] = useState<Record<string, number>>({});
   const [itineraryOpen, setItineraryOpen] = useState(true);
@@ -435,7 +436,24 @@ export function TransitSidebar({
       });
   }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas]);
 
-  // Live alerts now fetched via useQuery above (5-minute polling).
+  // Contextual alerts: when a route is in focus (selected vehicle or a route
+  // search like "72" / "Route 72"), the feed narrows to alerts affecting that
+  // route (plus system-wide ones). "All routes" widens it again.
+  const contextRoute = useMemo(() => {
+    const activeRid = activeVehicle?.route_id?.split(" · ")[0].trim();
+    if (activeRid) return activeRid;
+    if (searchCore !== "" && routeFirst) return searchCore.toUpperCase();
+    return null;
+  }, [activeVehicle, searchCore, routeFirst]);
+
+  const contextAlerts = useMemo(() => {
+    if (!contextRoute || showAllAlerts) return liveAlerts;
+    const key = contextRoute.toLowerCase();
+    return liveAlerts.filter((a) =>
+      a.routes.some((r) => r.toLowerCase() === key || r === "System")
+    );
+  }, [liveAlerts, contextRoute, showAllAlerts]);
+
 
   return (
     <>
@@ -762,17 +780,29 @@ export function TransitSidebar({
 
       {/* Alerts */}
       <div className="mt-auto flex min-h-0 flex-1 flex-col">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Live Alerts
-        </h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Live Alerts
+          </h2>
+          {contextRoute && (
+            <button
+              onClick={() => setShowAllAlerts((s) => !s)}
+              className="shrink-0 rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90 transition hover:bg-white/20"
+            >
+              {showAllAlerts ? "All routes" : `Route ${contextRoute} only`}
+            </button>
+          )}
+        </div>
         <div className="-mr-2 flex-1 overflow-y-auto pr-2">
-          {liveAlerts.length === 0 ? (
+          {contextAlerts.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground" suppressHydrationWarning>
-              No current alerts as of {last ? `${last.toLocaleDateString()} ${last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "..."}
+              {contextRoute && !showAllAlerts
+                ? `No alerts currently affecting Route ${contextRoute}.`
+                : `No current alerts as of ${last ? `${last.toLocaleDateString()} ${last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "..."}`}
             </p>
           ) : (
             <ul className="space-y-2">
-              {liveAlerts.map((a) => {
+              {contextAlerts.map((a) => {
                 const Icon = severityIcon[a.severity];
                 const isExpanded = expandedAlert === a.id;
                 
