@@ -14,7 +14,7 @@ import {
   getActiveRouteLines,
   nearestOnLines,
 } from "@/lib/geo-utils";
-import { findStopsByName } from "@/lib/stops-index";
+import { findStopsByName, coreSearchQuery } from "@/lib/stops-index";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { StarredBoards } from "@/components/StarredBoards";
 import type { FavoriteStop } from "@/hooks/use-favorites";
@@ -110,12 +110,15 @@ export function TransitSidebar({
   const [itineraryOpen, setItineraryOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+  const searchQ = search.trim().toLowerCase();
+  const searchCore = coreSearchQuery(search).toLowerCase();
   const filtered = vehicles.filter((v) => {
     if (!filters[v.vehicle_type]) return false;
-    const q = search.trim().toLowerCase();
-    if (q !== "") {
-      const matchRoute = v.route_id.toLowerCase().includes(q);
-      const matchDir = v.direction.toLowerCase().includes(q);
+    if (searchQ !== "") {
+      const rid = v.route_id.toLowerCase();
+      const matchRoute =
+        rid.includes(searchQ) || (searchCore !== "" && rid.includes(searchCore));
+      const matchDir = v.direction.toLowerCase().includes(searchQ);
       if (!matchRoute && !matchDir) return false;
     }
     if (selectedDirections.length > 0) {
@@ -125,6 +128,17 @@ export function TransitSidebar({
     }
     return true;
   });
+  // While searching, vehicles on the matched route float to the top of the
+  // feed (exact route number first, then other routes containing it).
+  if (searchQ !== "") {
+    const rank = (v: Vehicle) => {
+      const rid = v.route_id.toLowerCase();
+      if (searchCore !== "" && rid === searchCore) return 0;
+      if (searchCore !== "" && rid.includes(searchCore)) return 1;
+      return 2;
+    };
+    filtered.sort((a, b) => rank(a) - rank(b));
+  }
 
   // Departure board: every future arrival at the selected stop across ALL routes,
   // sourced from the global trip-updates feed (not restricted to the active vehicle).
@@ -163,10 +177,21 @@ export function TransitSidebar({
   }, [selectedStop, stopDepartures, vehicles]);
 
   // Matching stops sourced from the master stops.json (deduped by name).
+  // "Route 72" resolves to the same stop matches as "72".
   const matchingStops = useMemo(() => {
     if (selectedStop) return [];
-    return findStopsByName(search, 20);
+    return findStopsByName(coreSearchQuery(search) || search, 20);
   }, [search, selectedStop]);
+
+  // When the search resolves to a route number ("72" / "Route 72"), the
+  // vehicle feed leads and matching stops render below it.
+  const routeFirst = useMemo(() => {
+    if (searchCore === "") return false;
+    return vehicles.some((v) => {
+      const rid = v.route_id.toLowerCase();
+      return rid === searchCore || rid.includes(searchCore);
+    });
+  }, [searchCore, vehicles]);
 
   const counts = {
     bus: vehicles.filter((v) => v.vehicle_type === "bus").length,
