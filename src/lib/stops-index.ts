@@ -11,6 +11,14 @@ export interface StopRecord {
 
 export const ALL_STOPS = stopsData as StopRecord[];
 
+/**
+ * Strips a leading "Route"/"Rt"/"Rte" word so "Route 72" and "72" resolve to
+ * the same core query. Non-route-prefixed queries pass through unchanged.
+ */
+export function coreSearchQuery(query: string): string {
+  return query.trim().replace(/^(route|rt|rte)[\s.-]+/i, "").trim();
+}
+
 export interface PickableStop {
   id: string;
   name: string;
