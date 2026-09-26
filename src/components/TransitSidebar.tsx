@@ -14,7 +14,7 @@ import {
   getActiveRouteLines,
   nearestOnLines,
 } from "@/lib/geo-utils";
-import { findStopsByName } from "@/lib/stops-index";
+import { findStopsByName, coreSearchQuery } from "@/lib/stops-index";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { StarredBoards } from "@/components/StarredBoards";
 import type { FavoriteStop } from "@/hooks/use-favorites";
@@ -110,12 +110,15 @@ export function TransitSidebar({
   const [itineraryOpen, setItineraryOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+  const searchQ = search.trim().toLowerCase();
+  const searchCore = coreSearchQuery(search).toLowerCase();
   const filtered = vehicles.filter((v) => {
     if (!filters[v.vehicle_type]) return false;
-    const q = search.trim().toLowerCase();
-    if (q !== "") {
-      const matchRoute = v.route_id.toLowerCase().includes(q);
-      const matchDir = v.direction.toLowerCase().includes(q);
+    if (searchQ !== "") {
+      const rid = v.route_id.toLowerCase();
+      const matchRoute =
+        rid.includes(searchQ) || (searchCore !== "" && rid.includes(searchCore));
+      const matchDir = v.direction.toLowerCase().includes(searchQ);
       if (!matchRoute && !matchDir) return false;
     }
     if (selectedDirections.length > 0) {
@@ -125,6 +128,17 @@ export function TransitSidebar({
     }
     return true;
   });
+  // While searching, vehicles on the matched route float to the top of the
+  // feed (exact route number first, then other routes containing it).
+  if (searchQ !== "") {
+    const rank = (v: Vehicle) => {
+      const rid = v.route_id.toLowerCase();
+      if (searchCore !== "" && rid === searchCore) return 0;
+      if (searchCore !== "" && rid.includes(searchCore)) return 1;
+      return 2;
+    };
+    filtered.sort((a, b) => rank(a) - rank(b));
+  }
 
   // Departure board: every future arrival at the selected stop across ALL routes,
   // sourced from the global trip-updates feed (not restricted to the active vehicle).
@@ -163,10 +177,57 @@ export function TransitSidebar({
   }, [selectedStop, stopDepartures, vehicles]);
 
   // Matching stops sourced from the master stops.json (deduped by name).
+  // "Route 72" resolves to the same stop matches as "72".
   const matchingStops = useMemo(() => {
     if (selectedStop) return [];
-    return findStopsByName(search, 20);
+    return findStopsByName(coreSearchQuery(search) || search, 20);
   }, [search, selectedStop]);
+
+  // When the search resolves to a route number ("72" / "Route 72"), the
+  // vehicle feed leads and matching stops render below it.
+  const routeFirst = useMemo(() => {
+    if (searchCore === "") return false;
+    return vehicles.some((v) => {
+      const rid = v.route_id.toLowerCase();
+      return rid === searchCore || rid.includes(searchCore);
+    });
+  }, [searchCore, vehicles]);
+
+  const matchingStopsBlock =
+    !selectedStop && search.trim() !== "" && matchingStops.length > 0 ? (
+      <div className="mb-4">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Matching Stops ({matchingStops.length})
+          </span>
+        </div>
+        <ul className="-mr-2 max-h-44 space-y-1 overflow-y-auto pr-2">
+          {matchingStops.map((s) => (
+            <li
+              key={`${s.id}-${s.name}`}
+              className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] transition hover:border-primary/40 hover:bg-primary/10"
+            >
+              <button
+                type="button"
+                onClick={() => onPickStop(s)}
+                className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-xs"
+                title="Open departure board"
+              >
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">Departures →</span>
+              </button>
+              <FavoriteStar
+                active={isFavorite(s.name)}
+                onClick={() => onToggleFavorite({ id: s.id, name: s.name, lat: s.lat, lng: s.lng })}
+                label={s.name}
+                className="mr-1"
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
+    ) : null;
 
   const counts = {
     bus: vehicles.filter((v) => v.vehicle_type === "bus").length,
@@ -443,40 +504,8 @@ export function TransitSidebar({
         </div>
       )}
 
-      {!selectedStop && search.trim() !== "" && matchingStops.length > 0 && (
-        <div className="mb-4">
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Matching Stops ({matchingStops.length})
-            </span>
-          </div>
-          <ul className="-mr-2 max-h-44 space-y-1 overflow-y-auto pr-2">
-            {matchingStops.map((s) => (
-              <li
-                key={`${s.id}-${s.name}`}
-                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] transition hover:border-primary/40 hover:bg-primary/10"
-              >
-                <button
-                  type="button"
-                  onClick={() => onPickStop(s)}
-                  className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-xs"
-                  title="Open departure board"
-                >
-                  <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
-                  <span className="min-w-0 flex-1 truncate">{s.name}</span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">Departures →</span>
-                </button>
-                <FavoriteStar
-                  active={isFavorite(s.name)}
-                  onClick={() => onToggleFavorite({ id: s.id, name: s.name, lat: s.lat, lng: s.lng })}
-                  label={s.name}
-                  className="mr-1"
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {!routeFirst && matchingStopsBlock}
+
 
       {activeVehicle && (
         <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/10 px-3 py-2">
@@ -727,6 +756,7 @@ export function TransitSidebar({
               })}
             </ul>
           </div>
+          {routeFirst && matchingStopsBlock}
         </>
       )}
 
