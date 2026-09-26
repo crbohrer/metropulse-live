@@ -436,7 +436,24 @@ export function TransitSidebar({
       });
   }, [isRouteViewActive, activeVehicle, routeShape, routeStops, liveEtas]);
 
-  // Live alerts now fetched via useQuery above (5-minute polling).
+  // Contextual alerts: when a route is in focus (selected vehicle or a route
+  // search like "72" / "Route 72"), the feed narrows to alerts affecting that
+  // route (plus system-wide ones). "All routes" widens it again.
+  const contextRoute = useMemo(() => {
+    const activeRid = activeVehicle?.route_id?.split(" · ")[0].trim();
+    if (activeRid) return activeRid;
+    if (searchCore !== "" && routeFirst) return searchCore.toUpperCase();
+    return null;
+  }, [activeVehicle, searchCore, routeFirst]);
+
+  const contextAlerts = useMemo(() => {
+    if (!contextRoute || showAllAlerts) return liveAlerts;
+    const key = contextRoute.toLowerCase();
+    return liveAlerts.filter((a) =>
+      a.routes.some((r) => r.toLowerCase() === key || r === "System")
+    );
+  }, [liveAlerts, contextRoute, showAllAlerts]);
+
 
   return (
     <>
