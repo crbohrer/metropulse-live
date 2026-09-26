@@ -193,6 +193,42 @@ export function TransitSidebar({
     });
   }, [searchCore, vehicles]);
 
+  const matchingStopsBlock =
+    !selectedStop && search.trim() !== "" && matchingStops.length > 0 ? (
+      <div className="mb-4">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Matching Stops ({matchingStops.length})
+          </span>
+        </div>
+        <ul className="-mr-2 max-h-44 space-y-1 overflow-y-auto pr-2">
+          {matchingStops.map((s) => (
+            <li
+              key={`${s.id}-${s.name}`}
+              className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] transition hover:border-primary/40 hover:bg-primary/10"
+            >
+              <button
+                type="button"
+                onClick={() => onPickStop(s)}
+                className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-xs"
+                title="Open departure board"
+              >
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">Departures →</span>
+              </button>
+              <FavoriteStar
+                active={isFavorite(s.name)}
+                onClick={() => onToggleFavorite({ id: s.id, name: s.name, lat: s.lat, lng: s.lng })}
+                label={s.name}
+                className="mr-1"
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
+    ) : null;
+
   const counts = {
     bus: vehicles.filter((v) => v.vehicle_type === "bus").length,
     rail: vehicles.filter((v) => v.vehicle_type === "rail").length,
@@ -468,40 +504,8 @@ export function TransitSidebar({
         </div>
       )}
 
-      {!selectedStop && search.trim() !== "" && matchingStops.length > 0 && (
-        <div className="mb-4">
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Matching Stops ({matchingStops.length})
-            </span>
-          </div>
-          <ul className="-mr-2 max-h-44 space-y-1 overflow-y-auto pr-2">
-            {matchingStops.map((s) => (
-              <li
-                key={`${s.id}-${s.name}`}
-                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] transition hover:border-primary/40 hover:bg-primary/10"
-              >
-                <button
-                  type="button"
-                  onClick={() => onPickStop(s)}
-                  className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-xs"
-                  title="Open departure board"
-                >
-                  <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
-                  <span className="min-w-0 flex-1 truncate">{s.name}</span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">Departures →</span>
-                </button>
-                <FavoriteStar
-                  active={isFavorite(s.name)}
-                  onClick={() => onToggleFavorite({ id: s.id, name: s.name, lat: s.lat, lng: s.lng })}
-                  label={s.name}
-                  className="mr-1"
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {!routeFirst && matchingStopsBlock}
+
 
       {activeVehicle && (
         <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/10 px-3 py-2">
@@ -752,6 +756,7 @@ export function TransitSidebar({
               })}
             </ul>
           </div>
+          {routeFirst && matchingStopsBlock}
         </>
       )}
 

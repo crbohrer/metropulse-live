@@ -13,7 +13,7 @@ import {
   getStopDepartures,
 } from "@/lib/transit.functions";
 import { getRouteGeometry } from "@/lib/route-shapes.functions";
-import { findStopIdsByQuery, findStopIdsByExactName } from "@/lib/stops-index";
+import { findStopIdsByQuery, findStopIdsByExactName, coreSearchQuery } from "@/lib/stops-index";
 import { useFavorites } from "@/hooks/use-favorites";
 
 export const Route = createFileRoute("/")({
@@ -109,10 +109,14 @@ function Index() {
     refetchInterval: 15000,
   });
 
-  const matchedStopIds = useMemo(() => findStopIdsByQuery(search), [search]);
+  const matchedStopIds = useMemo(() => {
+    const core = coreSearchQuery(search);
+    return findStopIdsByQuery(core || search);
+  }, [search]);
 
   const visibleVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const core = coreSearchQuery(search).toLowerCase();
     const dirs = selectedDirections.map((d) => d.toLowerCase());
     const etas = tripUpdates?.etas ?? null;
     return vehicles.filter((v) => {
@@ -120,7 +124,12 @@ function Index() {
       if (dirs.length > 0 && !dirs.some((d) => v.direction.toLowerCase().includes(d)))
         return false;
       if (q === "") return true;
-      if (v.route_id.toLowerCase().includes(q) || v.direction.toLowerCase().includes(q))
+      const rid = v.route_id.toLowerCase();
+      if (
+        rid.includes(q) ||
+        (core !== "" && rid.includes(core)) ||
+        v.direction.toLowerCase().includes(q)
+      )
         return true;
       if (matchedStopIds.size > 0 && etas && v.id === active?.id) {
         for (const sid of Object.keys(etas)) {
