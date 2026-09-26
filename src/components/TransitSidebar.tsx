@@ -780,17 +780,29 @@ export function TransitSidebar({
 
       {/* Alerts */}
       <div className="mt-auto flex min-h-0 flex-1 flex-col">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Live Alerts
-        </h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Live Alerts
+          </h2>
+          {contextRoute && (
+            <button
+              onClick={() => setShowAllAlerts((s) => !s)}
+              className="shrink-0 rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90 transition hover:bg-white/20"
+            >
+              {showAllAlerts ? "All routes" : `Route ${contextRoute} only`}
+            </button>
+          )}
+        </div>
         <div className="-mr-2 flex-1 overflow-y-auto pr-2">
-          {liveAlerts.length === 0 ? (
+          {contextAlerts.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground" suppressHydrationWarning>
-              No current alerts as of {last ? `${last.toLocaleDateString()} ${last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "..."}
+              {contextRoute && !showAllAlerts
+                ? `No alerts currently affecting Route ${contextRoute}.`
+                : `No current alerts as of ${last ? `${last.toLocaleDateString()} ${last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "..."}`}
             </p>
           ) : (
             <ul className="space-y-2">
-              {liveAlerts.map((a) => {
+              {contextAlerts.map((a) => {
                 const Icon = severityIcon[a.severity];
                 const isExpanded = expandedAlert === a.id;
                 
