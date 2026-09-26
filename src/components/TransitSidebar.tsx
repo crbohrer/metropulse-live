@@ -105,6 +105,7 @@ export function TransitSidebar({
   });
   const liveAlerts: LiveTransitAlert[] = liveAlertsData ?? [];
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [, forceUpdate] = useState({});
   const [railEtas, setRailEtas] = useState<Record<string, number>>({});
   const [itineraryOpen, setItineraryOpen] = useState(true);
