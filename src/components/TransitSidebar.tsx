@@ -202,7 +202,7 @@ export function TransitSidebar({
             Matching Stops ({matchingStops.length})
           </span>
         </div>
-        <ul className="-mr-2 max-h-44 space-y-1 overflow-y-auto pr-2">
+        <ul className="-mr-2 max-h-36 space-y-1 overflow-y-auto pr-2">
           {matchingStops.map((s) => (
             <li
               key={`${s.id}-${s.name}`}
@@ -553,7 +553,7 @@ export function TransitSidebar({
             <span className="text-xs text-muted-foreground">{itineraryOpen ? "−" : "+"}</span>
           </button>
           {itineraryOpen && (
-            <ul className="max-h-56 overflow-y-auto border-t border-white/5 px-2 py-1.5">
+            <ul className="max-h-44 overflow-y-auto border-t border-white/5 px-2 py-1.5">
               {upcomingStops.length === 0 && (
                 <li className="px-2 py-3 text-center text-xs text-muted-foreground">
                   No upcoming stops.
@@ -691,7 +691,7 @@ export function TransitSidebar({
               size={18}
             />
           </div>
-          <div className="-mr-2 mb-4 max-h-[28%] overflow-y-auto pr-2">
+          <div className="-mr-2 mb-4 max-h-[22%] overflow-y-auto pr-2">
             {departures.length === 0 && (
               <p className="py-4 text-center text-xs text-muted-foreground">No tracked arrivals.</p>
             )}
@@ -740,7 +740,7 @@ export function TransitSidebar({
                 {last ? last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "..."}
               </span>
           </div>
-          <div className="-mr-2 mb-4 max-h-[28%] overflow-y-auto pr-2">
+          <div className="-mr-2 mb-4 max-h-[22%] overflow-y-auto pr-2">
             {filtered.length === 0 && (
               <p className="py-4 text-center text-xs text-muted-foreground">No vehicles match.</p>
             )}
@@ -779,7 +779,7 @@ export function TransitSidebar({
       )}
 
       {/* Alerts */}
-      <div className="mt-auto flex min-h-0 flex-1 flex-col">
+      <div className="mt-auto flex min-h-[30%] flex-1 flex-col">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Live Alerts
@@ -793,7 +793,7 @@ export function TransitSidebar({
             </button>
           )}
         </div>
-        <div className="-mr-2 flex-1 overflow-y-auto pr-2">
+        <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
           {contextAlerts.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground" suppressHydrationWarning>
               {contextRoute && !showAllAlerts
