@@ -202,7 +202,7 @@ export function TransitSidebar({
             Matching Stops ({matchingStops.length})
           </span>
         </div>
-        <ul className="-mr-2 max-h-44 space-y-1 overflow-y-auto pr-2">
+        <ul className="-mr-2 max-h-36 space-y-1 overflow-y-auto pr-2">
           {matchingStops.map((s) => (
             <li
               key={`${s.id}-${s.name}`}
@@ -691,7 +691,7 @@ export function TransitSidebar({
               size={18}
             />
           </div>
-          <div className="-mr-2 mb-4 max-h-[28%] overflow-y-auto pr-2">
+          <div className="-mr-2 mb-4 max-h-[22%] overflow-y-auto pr-2">
             {departures.length === 0 && (
               <p className="py-4 text-center text-xs text-muted-foreground">No tracked arrivals.</p>
             )}
@@ -740,7 +740,7 @@ export function TransitSidebar({
                 {last ? last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "..."}
               </span>
           </div>
-          <div className="-mr-2 mb-4 max-h-[28%] overflow-y-auto pr-2">
+          <div className="-mr-2 mb-4 max-h-[22%] overflow-y-auto pr-2">
             {filtered.length === 0 && (
               <p className="py-4 text-center text-xs text-muted-foreground">No vehicles match.</p>
             )}
@@ -793,7 +793,7 @@ export function TransitSidebar({
             </button>
           )}
         </div>
-        <div className="-mr-2 flex-1 overflow-y-auto pr-2">
+        <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
           {contextAlerts.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground" suppressHydrationWarning>
               {contextRoute && !showAllAlerts
