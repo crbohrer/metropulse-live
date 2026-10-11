@@ -850,9 +850,10 @@ export function TransitSidebar({
             </ul>
           )}
         </div>
-      </div>
-    </aside>
-  </>
+        </div>
+        </div>
+      </aside>
+    </>
   );
 }
 
