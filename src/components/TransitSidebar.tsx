@@ -553,7 +553,7 @@ export function TransitSidebar({
             <span className="text-xs text-muted-foreground">{itineraryOpen ? "−" : "+"}</span>
           </button>
           {itineraryOpen && (
-            <ul className="max-h-56 overflow-y-auto border-t border-white/5 px-2 py-1.5">
+            <ul className="max-h-44 overflow-y-auto border-t border-white/5 px-2 py-1.5">
               {upcomingStops.length === 0 && (
                 <li className="px-2 py-3 text-center text-xs text-muted-foreground">
                   No upcoming stops.
@@ -779,7 +779,7 @@ export function TransitSidebar({
       )}
 
       {/* Alerts */}
-      <div className="mt-auto flex min-h-0 flex-1 flex-col">
+      <div className="mt-auto flex min-h-[30%] flex-1 flex-col">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Live Alerts
